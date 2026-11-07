@@ -8,6 +8,8 @@ export const BADGES = {
   detective: ['בלשי מעבדה', 'זיהו מה קרה למדידה החריגה'],
   scienceSense: ['חוש מדעי', 'ההשערה התאימה לתוצאות'],
   o2Keepers: ['שומרי חמצן', 'נשארו לפחות 90 דקות חמצן'],
+  stormCalm: ['קור רוח בסערה', 'פסלו ניסוי שנפגע בסופה'],
+  lifeScience: ['מדע בחיים', '3 תשובות נכונות במסדרון'],
 };
 const BENCH_MISTAKES = ['noGoggles', 'sealedStopper', 'excessYeast', 'boiling'];
 
@@ -52,8 +54,8 @@ export async function run(ctx, scope) {
       g.globalAlpha = on ? 1 : 0.3;
       g.fillStyle = on ? ui.C.oxy : '#3a4c6a'; g.beginPath(); g.arc(cx, H * 0.62, H * 0.07, 0, 7); g.fill();
       g.fillStyle = '#041015'; g.font = `800 ${H * 0.08}px ${ui.FONT}`; g.fillText(on ? '✓' : '·', cx, H * 0.625);
-      g.fillStyle = ui.C.ink; g.font = `700 ${H * 0.055}px ${ui.FONT}`; g.fillText(BADGES[id][0], cx, H * 0.78);
-      g.fillStyle = ui.C.muted; g.font = `500 ${H * 0.033}px ${ui.FONT}`; g.fillText(BADGES[id][1], cx, H * 0.86);
+      g.fillStyle = ui.C.ink; g.font = `700 ${H * 0.048}px ${ui.FONT}`; g.fillText(BADGES[id][0], cx, H * 0.78);
+      g.fillStyle = ui.C.muted; g.font = `500 ${H * 0.029}px ${ui.FONT}`; g.fillText(BADGES[id][1], cx, H * 0.86);
       g.globalAlpha = 1;
     });
   } }));

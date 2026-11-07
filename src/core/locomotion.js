@@ -69,6 +69,8 @@ export function createLocomotion(engine, input) {
       if (current) place(stations[current].pos, stations[current].yaw);
     },
     setSmooth(on) { smooth = on; },
+    /** Walkable bounds for desktop WASD / smooth move (null = the lab). */
+    setArea(a) { area = a; },
     get smooth() { return smooth; },
   };
 
@@ -98,9 +100,11 @@ export function createLocomotion(engine, input) {
     yaw -= dx * 0.0035; pitch = Math.max(-1.2, Math.min(1.1, pitch - dy * 0.0035));
   });
 
+  let area = null;   // null = the lab; otherwise {x0,x1,z0,z1,blocks}
   function blocked(x, z) {
-    if (x < ROOM.x0 || x > ROOM.x1 || z < ROOM.z0 || z > ROOM.z1) return true;
-    return BLOCKS.some(([a, b, c, d]) => x > a && x < b && z > c && z < d);
+    const R = area || ROOM, BL = area ? area.blocks : BLOCKS;
+    if (x < R.x0 || x > R.x1 || z < R.z0 || z > R.z1) return true;
+    return BL.some(([a, b, c, d]) => x > a && x < b && z > c && z < d);
   }
   function move(dx, dz) {
     const nx = rig.position.x + dx, nz = rig.position.z + dz;

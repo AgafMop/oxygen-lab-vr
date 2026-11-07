@@ -15,7 +15,7 @@ export function createMood(ctx) {
   const alarmMats = new Set(); lab.alarms.forEach(a => a.traverse(o => o.isMesh && alarmMats.add(o.material)));
   alarmMats.forEach(m => { m.emissive = new THREE.Color(0xff1a0a); m.emissiveIntensity = 0; });
   const liquid = lab.props.P_generatorLiquid;
-  const liqMats = []; liquid.traverse(o => o.isMesh && liqMats.push([o.material, o.material.emissiveIntensity || 1]));
+  const liqMats = []; liquid.traverse(o => o.isMesh && liqMats.push([o.material, Math.min(1.1, o.material.emissiveIntensity || 1)]));   // teal, not blown to white
 
   const state = { light: 1, alarm: 0, gen: 1, flicker: 0 };
   let t = 0;

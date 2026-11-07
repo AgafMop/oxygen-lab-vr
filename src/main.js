@@ -15,13 +15,16 @@ import { createScope, Abort } from './chapters/kit.js';
 import * as ch0 from './chapters/ch0_intro.js';
 import * as ch1 from './chapters/ch1_hypothesis.js';
 import { createMood } from './fx/mood.js';
+import { createLabSigns } from './ui/labSigns.js';
 import * as ch2 from './chapters/ch2_bench.js';
 import * as ch3 from './chapters/ch3_robot.js';
 import * as ch4 from './chapters/ch4_graph.js';
 import * as chEnd from './chapters/ch_end.js';
+import * as ch5 from './chapters/ch5_rescue.js';
+import * as ch6 from './chapters/ch6_life.js';
 import { SAVE_KEY } from './game/config.js';
 
-const CH = { intro: ch0, hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4, end: chEnd };
+const CH = { intro: ch0, hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4, rescue: ch5, life: ch6, end: chEnd };
 const CH_NAMES = { intro: 'פתיחה', rescue: 'הצלת הבסיס', life: 'מסדרון החיים', hypothesis: 'תדריך והשערה', bench: 'הניסוי בידיים', robot: 'רובי מריץ ניסויים', graph: 'הגרף והאנזים', end: 'סיכום' };
 
 const params = new URLSearchParams(location.search);
@@ -53,6 +56,7 @@ async function boot() {
   ctx.app = createApparatus(ctx);
   ctx.robi = createRobi(ctx);
   ctx.mood = createMood(ctx);
+  createLabSigns(ctx);
   ctx.robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45));
   await ui.fontsReady;
   $('enter').disabled = false; $('enter').textContent = 'כניסה במחשב';
@@ -148,7 +152,11 @@ async function runChapter(id) {
 
 async function gameOverPanel() {
   window.__gameOver = (window.__gameOver || 0) + 1;
+  // the base goes dark: lights out, red alarm, the commander's last call
+  const before = { ...ctx.mood.state };
   audio.sfx('alarm');
+  await Promise.all([ctx.mood.to('light', 0.12, 1200), ctx.mood.to('alarm', 1, 600), ctx.mood.to('gen', 0, 1200)]);
+  await audio.say('go_1');
   const p = ui.panel({ w: 0.8, h: 0.34, draw(g, W, H) {
     ui.rr(g, 6, 6, W - 12, H - 12, 30); g.fillStyle = 'rgba(40,8,6,0.94)'; g.fill(); g.lineWidth = 8; g.strokeStyle = ui.C.bad; g.stroke();
     g.fillStyle = ui.C.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -162,6 +170,9 @@ async function gameOverPanel() {
   audio.say('gameover');
   await s.waitSelect(btn.mesh);
   p.dispose(); btn.dispose();
+  await engine.fade(1, 400);
+  ctx.mood.set({ light: before.light, alarm: before.alarm, gen: before.gen, flicker: 0 });
+  await engine.fade(0, 600);
 }
 
 function uiDemo() {

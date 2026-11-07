@@ -13,11 +13,12 @@ export const TUNE = {
 const PLACE = {
   P_bath: ['A_bath'], P_flask: ['A_flask'], P_trough: ['A_trough'], P_cylinder: ['A_cylinder'],
   P_stand: ['A_trough', [-0.2, 0, 0.02]], P_thermometer: ['A_bath', [0.12, 0.02, 0.07]],
-  P_bottle3: ['A_bottle3'], P_bottle30: ['A_bottle30'], P_yeastJar: ['A_yeastJar'], P_spoon: ['A_spoon'],
+  // bottles pulled toward the centre (side by side behind the bath) so both read on desktop
+  P_bottle3: ['A_bottle3', [-0.18, 0, -0.34]], P_bottle30: ['A_bottle30', [-0.2, 0, -0.08]], P_yeastJar: ['A_yeastJar'], P_spoon: ['A_spoon'],
   P_rod: ['A_rod'], P_stopperTube: ['A_stopperTube'], P_stopperSealed: ['A_stopperSealed'], P_timer: ['A_timer'],
   P_goggles: ['A_goggleRack', [0.08, 0.02, 0]],
   P_generatorTank: ['A_generator'], P_generatorGlass: ['A_generator'], P_generatorLiquid: ['A_generator'],
-  P_generatorConsole: ['A_generator', [1.5, 0, 0], Math.PI / 2],
+  P_generatorConsole: ['A_generator', [1.45, 0, 0.85], Math.PI / 2 + 0.5],   // beside the window, not in front of it
 };
 
 export async function loadLab(engine, base = 'assets/') {

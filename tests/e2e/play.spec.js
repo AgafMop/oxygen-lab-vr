@@ -260,3 +260,31 @@ test('review F7: recenter / teleport during the enzyme zoom cannot strand the pl
   expect(Math.abs(y)).toBeLessThan(1);
   expect(errors).toEqual([]);
 });
+
+test('chapter 5 auto: the generator is set to the student peak and the base is saved', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=rescue');
+  await page.waitForFunction(() => window.__chapterDone === 'rescue', null, { timeout: 170_000 });
+  const s = await page.evaluate(() => ({ rescued: window.__ctx.game.s.flags.rescued, gen: window.__ctx.mood.state.gen, alarm: window.__ctx.mood.state.alarm }));
+  expect(s.rescued).toBe(true);
+  expect(s.gen).toBeGreaterThan(0.9);
+  expect(s.alarm).toBe(0);
+  await page.screenshot({ path: `${SHOTS}/ch5.png` });
+  expect(errors).toEqual([]);
+});
+
+test('chapter 6 auto: four life cases in the corridor, then back to the lab', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=life');
+  await page.waitForFunction(() => window.__ctx.loco.current === 'case1', null, { timeout: 170_000 });
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${SHOTS}/ch6-case1.png` });
+  await page.waitForFunction(() => window.__ctx.loco.current === 'case2', null, { timeout: 170_000 });
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${SHOTS}/ch6-case2.png` });
+  await page.waitForFunction(() => window.__chapterDone === 'life', null, { timeout: 170_000 });
+  const s = await page.evaluate(() => ({ badges: window.__ctx.game.s.badges, at: window.__ctx.loco.current }));
+  expect(s.badges).toContain('lifeScience');
+  expect(s.at).toBe('bench');
+  const calls = await page.evaluate(() => window.__budget.life.calls);
+  expect(calls).toBeLessThanOrEqual(150);
+  expect(errors).toEqual([]);
+});
