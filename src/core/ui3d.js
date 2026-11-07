@@ -118,7 +118,7 @@ export function createUI(engine, input) {
     g.font = `700 34px ${FONT}`; g.fillStyle = SPEAKERS[speaker]?.color || C.oxy; g.fillText(SPEAKERS[speaker]?.name || '', W - 34, 18);
     g.font = `500 40px ${FONT}`; g.fillStyle = C.ink; wrapText(g, text, W - 34, 62, W - 68, 48);
   } });
-  subPanel.mesh.renderOrder = 9000; subPanel.mesh.visible = false; scene.add(subPanel.mesh);
+  subPanel.mesh.renderOrder = 9000; subPanel.mesh.visible = false; subPanel.mesh.userData.ui = true; scene.add(subPanel.mesh);
   let subTimer = 0;
   const target = new THREE.Vector3(), q = new THREE.Quaternion();
   engine.onFrame(dt => {

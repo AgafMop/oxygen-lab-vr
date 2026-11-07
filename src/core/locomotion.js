@@ -11,6 +11,7 @@ export function createLocomotion(engine, input) {
   const { rig, camera, renderer } = engine;
   const stations = {};
   let current = null, smooth = false, turnLatch = false, yaw = 0, pitch = -0.12;
+  const offset = new THREE.Vector3();   // cinematic worlds (enzyme zoom, intro) live at an offset from the lab
   const keys = new Set();
   const v = new THREE.Vector3(), q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ');
 
@@ -32,14 +33,14 @@ export function createLocomotion(engine, input) {
     const rigYaw = targetYaw - h.yaw;
     rig.rotation.set(0, rigYaw, 0);
     const off = new THREE.Vector3(h.x, 0, h.z).applyAxisAngle(new THREE.Vector3(0, 1, 0), rigYaw);
-    rig.position.x = pos.x - off.x;
-    rig.position.z = pos.z - off.z;
+    rig.position.x = pos.x - off.x + offset.x;
+    rig.position.z = pos.z - off.z + offset.z;
     if (!engine.isXR()) { yaw = 0; camera.rotation.set(pitch, 0, 0); }
   }
 
   function calibrateHeight() {
     const h = headLocal();
-    if (h.y) rig.position.y = seatedRigOffset(h.y);
+    if (h.y) rig.position.y = seatedRigOffset(h.y) + offset.y;
   }
 
   const loco = {
@@ -50,7 +51,11 @@ export function createLocomotion(engine, input) {
       stations[id] = { pos: p, yaw: node.userData.yaw ?? 0, disc };
       if (disc) input.register(disc, { onSelect: () => loco.goTo(id), noHighlight: false });
     },
+    /** Move the player into/out of a cinematic world; teleports are locked while offset ≠ 0. */
+    setOffset(v) { rig.position.sub(offset).add(v); offset.copy(v); },
+    get offset() { return offset; },
     async goTo(id, { fade = true } = {}) {
+      if (offset.lengthSq() > 0) return;
       const s = stations[id];
       if (!s) throw new Error(`no station ${id}`);
       if (fade) await engine.fade(1, 180);
@@ -71,7 +76,7 @@ export function createLocomotion(engine, input) {
     let n = 0;
     const off = engine.onFrame(() => { if (++n === 30) { off(); loco.recenter(); } });
   });
-  renderer.xr.addEventListener('sessionend', () => { rig.position.y = 0; camera.position.set(0, DESK_EYE, 0); });
+  renderer.xr.addEventListener('sessionend', () => { rig.position.y = offset.y; camera.position.set(0, DESK_EYE, 0); });
 
   // ---- desktop controls ----
   const canvas = renderer.domElement;
@@ -106,6 +111,7 @@ export function createLocomotion(engine, input) {
   engine.onFrame(dt => {
     if (!engine.isXR()) {
       rig.rotation.y += yaw; yaw = 0;
+      if (offset.lengthSq() > 0) { camera.rotation.set(pitch, 0, 0); return; }
       camera.rotation.set(pitch, 0, 0);
       const f = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
       const s = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);

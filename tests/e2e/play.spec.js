@@ -32,7 +32,7 @@ test('ui: card, subtitle and O2 meter render in Hebrew', async ({ page }) => {
 });
 
 test('boots and teleports', async ({ page }) => {
-  const errors = await boot(page);
+  const errors = await boot(page, '&nogame');
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${SHOTS}/bench.png` });
   const b1 = await budget(page);
@@ -139,7 +139,7 @@ test('chapter 3 auto: plan, 15 robot trials, one unmixed outlier', async ({ page
 });
 
 test('chapter 3 low oxygen: game over mid-run, then restore and finish', async ({ page }) => {
-  const errors = await boot(page, '&auto&only=robot&o2=40');
+  const errors = await boot(page, '&auto&only=robot&o2run=40');
   await page.waitForFunction(() => window.__gameOver === 1, null, { timeout: 170_000 });
   await page.waitForFunction(() => window.__chapterDone === 'robot', null, { timeout: 170_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
@@ -208,5 +208,52 @@ test('intro: outside, storm hits, inside with alarms; then chapter 1 starts', as
   const s = await page.evaluate(() => ({ done: window.__ctx.game.s.flags.introDone, y: window.__ctx.engine.rig.position.y }));
   expect(s.done).toBe(true);
   expect(Math.abs(s.y)).toBeLessThan(1);
+  expect(errors).toEqual([]);
+});
+
+test('review F1: entering again (e.g. after the headset slept) never starts a second game', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=hypothesis');
+  await page.evaluate(() => { document.getElementById('boot').hidden = false; });
+  await page.click('#enter');
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => window.__runs)).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('review F6: a look-drag that ends on a card does not select it', async ({ page }) => {
+  const errors = await boot(page, '&uidemo');
+  await page.waitForTimeout(800);
+  const card = await page.evaluate(() => { let m; window.__ctx.engine.scene.traverse(o => { if (o.isMesh && o.geometry?.parameters?.width === 0.32) m = o; }); return !!m; });
+  expect(card).toBe(true);
+  const sel = () => page.evaluate(() => { let st; window.__ctx.engine.scene.traverse(o => { if (o.isMesh && o.geometry?.parameters?.width === 0.32) st = o; }); return window.__ctx.input.hovered() === st; });
+  // find the card on screen by sweeping the mouse
+  const find = async () => { for (let x = 120; x < 1180; x += 40) for (let y = 100; y < 640; y += 40) { await page.mouse.move(x, y); if (await sel()) return { x, y }; } return null; };
+  let at = await find();
+  expect(at).not.toBeNull();
+  await page.mouse.move(at.x - 120, at.y); await page.mouse.down(); await page.mouse.move(at.x, at.y, { steps: 6 }); await page.mouse.up();
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__uiCardState)).not.toBe('sel');
+  at = await find();                       // the drag turned the view: find the card again
+  expect(at).not.toBeNull();
+  await page.mouse.click(at.x, at.y);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__uiCardState)).toBe('sel');
+  expect(errors).toEqual([]);
+});
+
+test('review F5: blocked localStorage still boots', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(window, 'localStorage', { configurable: true, get() { throw new DOMException('denied', 'SecurityError'); } }); });
+  const errors = await boot(page, '&auto&only=hypothesis');
+  await page.waitForFunction(() => window.__chapterDone === 'hypothesis', null, { timeout: 150_000 });
+  expect(errors).toEqual([]);
+});
+
+test('review F7: recenter / teleport during the enzyme zoom cannot strand the player', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=graph&zoomhold');
+  await page.waitForFunction(() => window.__ctx.zoomPhase === 'warm', null, { timeout: 170_000 });
+  await page.evaluate(() => { window.__ctx.loco.recenter(); window.__ctx.loco.goTo('bench'); });
+  await page.waitForFunction(() => window.__chapterDone === 'graph', null, { timeout: 170_000 });
+  const y = await page.evaluate(() => window.__ctx.engine.rig.position.y);
+  expect(Math.abs(y)).toBeLessThan(1);
   expect(errors).toEqual([]);
 });

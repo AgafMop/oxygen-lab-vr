@@ -13,53 +13,52 @@ export async function run(ctx, scope) {
 
   const vals = () => Object.fromEntries(Object.entries(game.s.trials).map(([T, l]) => [T, l.filter(t => t.valid).map(t => t.volume)]));
 
-  // ---- 1. the outlier ----
-  const flagged = Object.entries(game.s.trials).flatMap(([T, l]) => l.map((t, i) => ({ temp: Number(T), index: i, t }))).find(x => x.t.meta === 'unmixed' && x.t.valid)
-    ?? findOutliers(vals())[0];
-  if (flagged) {
+  // ---- 1+2. every real "forgot to stir" outlier (the student's own first): explain it, then keep or disqualify ----
+  const detected = findOutliers(vals());
+  const validIdx = (T, i) => game.s.trials[T].slice(0, i + 1).filter(t => t.valid).length - 1;   // index among valid values
+  const flaggedAll = Object.entries(game.s.trials)
+    .flatMap(([T, l]) => l.map((t, i) => ({ temp: Number(T), index: i, t })))
+    .filter(x => x.t.valid && x.t.meta === 'unmixed' && detected.some(o => o.temp === x.temp && o.index === validIdx(x.temp, x.index)))
+    .sort((p, q) => (p.t.by === 'student' ? -1 : 0) - (q.t.by === 'student' ? -1 : 0));
+  let firstCause = true, keptAny = false;
+  for (const flagged of flaggedAll) {
     graph.highlight(flagged.temp, flagged.index);
     robi.face('think');
     await scope.say('c4_outlier');
     const b = boardAtStation(ctx, scope, 'robot', { dist: 0.75, height: 1.05, side: -0.15 });
     const causes = [['לא ערבבו', true], ['דליפה', false], ['רעש רגיל', false]];
-    let first = true, resolve;
+    let wrongHere = false, resolve;
     const ok = new Promise(r => { resolve = r; });
     const cards = causes.map(([label, right], i) => {
       const c = scope.add(ui.card({ w: 0.17, h: 0.09, label, onSelect: cc => {
+        if (cc.state === 'right') return;
         if (right) { cc.setState('right'); audio.sfx('ok'); resolve(); }
-        else { cc.setState('wrong'); audio.sfx('no'); if (first) game.markDecision(false); first = false; audio.say('c4_outlier_no'); }
+        else { cc.setState('wrong'); audio.sfx('no'); if (!wrongHere) game.markDecision(false); wrongHere = true; firstCause = false; audio.say('c4_outlier_no'); }
       } }));
       c.mesh.position.set((1 - i) * 0.19, 0, 0.01); b.add(c.mesh);
       return c;
     });
     if (ctx.auto) setTimeout(() => input.select(cards[0].mesh), 60);
     await scope.guard(ok);
-    if (first) { game.award('detective'); game.markDecision(true); }
+    if (!wrongHere) game.markDecision(true);
     robi.face('oops'); robi.gesture('shrug');
-    await scope.say('c4_outlier_ok');
+    await scope.say(flagged.t.by === 'student' ? 'c2_stir' : 'c4_outlier_ok');
     cards.forEach(c => c.dispose());
 
-    // ---- 2. disqualify or keep? ----
+    // a real choice: disqualifying is honest; keeping it costs the decision and visibly bends the mean
     robi.face('think');
     await scope.say('c4_disq');
-    let keptOnce = false, onDecide = () => {};
+    let onDecide = () => {};
     const disq = scope.add(ui.button3d('לפסול', () => onDecide(true), { w: 0.2, h: 0.08 }));
     const keep = scope.add(ui.button3d('להשאיר', () => onDecide(false), { style: 'ghost', w: 0.2, h: 0.08 }));
     disq.mesh.position.set(0.12, 0, 0.01); keep.mesh.position.set(-0.12, 0, 0.01); b.add(disq.mesh, keep.mesh);
-    for (;;) {
-      const v = await scope.guard(new Promise(r => { onDecide = r; if (ctx.auto) setTimeout(() => input.select(disq.mesh), 60); }));
-      if (v) break;
-      if (!keptOnce) { keptOnce = true; game.markDecision(false); }
-      audio.sfx('no');
-      await scope.say('c4_keep');   // the highlighted dot is still pulling the mean line down
-    }
-    game.disqualify(flagged.temp, flagged.index, 'unmixed');
-    if (!keptOnce) game.markDecision(true);
-    audio.sfx('ok'); robi.face('happy');
+    const v = await scope.guard(new Promise(r => { onDecide = r; if (ctx.auto) setTimeout(() => input.select(disq.mesh), 60); }));
     graph.highlight(null);
-    await scope.say('c4_disq_ok');
+    if (v) { game.disqualify(flagged.temp, flagged.index, 'unmixed'); game.markDecision(true); audio.sfx('ok'); robi.face('happy'); await scope.say('c4_disq_ok'); }
+    else { keptAny = true; game.markDecision(false); audio.sfx('no'); robi.face('think'); await scope.say('c4_keep'); }
     disq.dispose(); keep.dispose();
   }
+  if (flaggedAll.length && firstCause && !keptAny) game.award('detective');
 
   // ---- 3. where is the peak? ----
   const means = Object.fromEntries(Object.entries(vals()).map(([T, v]) => [T, mean(v)]));

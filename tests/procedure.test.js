@@ -124,3 +124,10 @@ test('hint level fades over the three trials', () => {
   assert.deepEqual([0, 1, 2].map(lv), ['full', 'highlight', 'none']);
   assert.equal(createProcedure({ game: g, rng: makeRng(1), trialIndex: 0, goggles: false, requiredTemp: 37 }).hint().target, 'A_goggleRack');
 });
+
+test('review F8: the student\'s unstirred trial is tagged as an unmixed outlier candidate', () => {
+  const { game, p } = setup();
+  upTo(p, 'yeast');
+  p.act({ type: 'stopper', kind: 'tube' }); p.act({ type: 'timer' }); p.act({ type: 'read', ml: p.volume });
+  assert.equal(game.s.trials[37][0].meta, 'unmixed');
+});

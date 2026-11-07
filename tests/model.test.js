@@ -45,3 +45,18 @@ test('findOutliers flags a far value only', () => {
 test('bestTemp picks highest mean', () => {
   assert.equal(bestTemp({ 30: 20, 40: 33, 50: 12 }), 40);
 });
+
+import { robotValues } from '../src/game/model.js';
+
+test('review F3: robotValues only marks an outlier that the detector really sees', () => {
+  const rng = makeRng(9);
+  const cold = robotValues(5, rng, 1);
+  assert.equal(cold.outIdx, null);
+  assert.deepEqual(findOutliers({ 5: cold.vals }), []);
+  const warm = robotValues(40, rng, 2);
+  assert.equal(warm.outIdx, 2);
+  assert.deepEqual(findOutliers({ 40: warm.vals }), [{ temp: 40, index: 2 }]);
+  const plain = robotValues(30, rng, null);
+  assert.equal(plain.outIdx, null);
+  assert.deepEqual(findOutliers({ 30: plain.vals }), []);
+});

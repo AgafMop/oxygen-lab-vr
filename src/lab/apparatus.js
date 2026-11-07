@@ -125,7 +125,7 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
     for (let i = B.length - 1; i >= 0; i--) { const b = B[i]; b.p.y += dt * 0.12; if (b.p.y >= b.top) B.splice(i, 1); }
     bub.count = B.length; bub.visible = B.length > 0;
     B.forEach((b, i) => { S.setScalar(b.r); M4.compose(b.p, Q, S); bub.setMatrixAt(i, M4); });
-    bub.instanceMatrix.needsUpdate = true;
+    if (B.length) bub.instanceMatrix.needsUpdate = true;
   });
 
   // ---------- generic particles (foam, steam, splash) ----------
@@ -144,7 +144,7 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
     }
     parts.count = PS.length; parts.visible = PS.length > 0;
     PS.forEach((p, i) => { S.setScalar(p.s); M4.compose(p.p, Q, S); parts.setMatrixAt(i, M4); });
-    parts.instanceMatrix.needsUpdate = true;
+    if (PS.length) parts.instanceMatrix.needsUpdate = true;
   });
 
   // camera overlays (splash red, goggles rim)
@@ -169,6 +169,7 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
   }, -0.1);
 
   function shake(ms = 600, amp = 0.03) {
+    if (engine.isXR()) return Promise.resolve();     // moving the world in a headset is a comfort risk
     const rig = engine.rig, base = rig.position.clone();
     return tween(ms, (k, raw) => { const a = amp * (1 - raw); rig.position.set(base.x + (Math.random() - 0.5) * a, base.y + (Math.random() - 0.5) * a, base.z + (Math.random() - 0.5) * a); }, ease.linear)
       .then(() => rig.position.copy(base));
@@ -259,7 +260,7 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
       if (app._hintOff) { app._hintOff(); app._hintOff = null; }
       if (!obj) return;
       const mats = [];
-      obj.traverse(o => { if (o.isMesh && o.material.emissive) mats.push([o.material, o.material.emissive.clone()]); });
+      obj.traverse(o => { if (o.isMesh && o.material.emissive) mats.push([o.material, (o.userData.__em || o.material.emissive).clone()]); });
       const off = engine.onFrame(() => { const k = 0.25 + 0.25 * Math.sin(performance.now() * 0.008); for (const [m] of mats) m.emissive.setRGB(0.24 * k * 2, 0.77 * k * 2, 0.74 * k * 2); });
       app._hintOff = () => { off(); for (const [m, e] of mats) m.emissive.copy(e); };
     },

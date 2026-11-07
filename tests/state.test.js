@@ -70,7 +70,7 @@ test('planFeedback', () => {
   assert.equal(g.planFeedback([10, 20, 30, 35, 15]).msg, 'oneSided');
   assert.equal(g.planFeedback([45, 50, 55, 60, 65]).msg, 'oneSided');
   assert.equal(g.planFeedback([10, 20]).msg, 'few');
-  assert.deepEqual(g.planFeedback([10, 25, 37, 45, 60]), { ok: true, msg: null });
+  assert.equal(g.planFeedback([10, 25, 37, 45, 60]).ok, true);
   assert.equal(g.planFeedback([5, 10, 20, 30, 37, 45, 55, 65]).msg, 'many');
 });
 
@@ -94,4 +94,48 @@ test('a wrong decision costs the third star', () => {
   const g = newGame();
   g.markDecision(false);
   assert.equal(g.finalScore().stars, 2);
+});
+
+test('review F2: a one-sided plan is caught even with the locked 37', () => {
+  const g = newGame();
+  assert.equal(g.planFeedback([5, 10, 15, 20, 37]).msg, 'oneSided');
+  assert.equal(g.planFeedback([45, 50, 55, 60, 37]).msg, 'oneSided');
+  assert.equal(g.planFeedback([20, 30, 37, 45, 55]).ok, true);
+});
+
+test('review F4: a plan that costs more oxygen than is left is refused', () => {
+  const g = newGame();
+  g.s.o2 = 150;                       // 6 robot temps × 3 × 15 = 270 > 150
+  assert.equal(g.planFeedback([10, 20, 30, 37, 45, 55, 65]).msg, 'budget');
+  assert.equal(g.planFeedback([20, 30, 37, 45, 55]).msg, 'budget');   // 4×45 = 180 > 150
+  g.s.o2 = 200;
+  assert.equal(g.planFeedback([20, 30, 37, 45, 55]).ok, true);
+});
+
+test('review F4: a second game over in the same chapter opens the reserve tanks', () => {
+  const g = newGame();
+  g.s.o2 = 100; g.setChapter('robot');
+  g.spend(500); g.restoreCheckpoint();
+  assert.equal(g.s.o2, 100);
+  g.spend(500); g.restoreCheckpoint();
+  assert.ok(g.s.o2 >= 240, `o2=${g.s.o2}`);
+});
+
+test('review: a game over costs score', () => {
+  const g = newGame();
+  g.setChapter('bench'); g.spend(500); g.restoreCheckpoint();
+  assert.ok(g.s.score <= -100);
+});
+
+test('review F5: a throwing localStorage getter does not break storage', () => {
+  const desc = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('SecurityError'); } });
+  try {
+    let st;
+    assert.doesNotThrow(() => { st = createStorage(); });
+    assert.equal(st.get('x'), null);
+    assert.doesNotThrow(() => st.set('x', 1));
+  } finally {
+    if (desc) Object.defineProperty(globalThis, 'localStorage', desc); else delete globalThis.localStorage;
+  }
 });

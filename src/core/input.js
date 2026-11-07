@@ -76,7 +76,13 @@ export function createInput(engine) {
   canvas.addEventListener('pointermove', e => {
     if (!mouse.locked) mouse.ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   });
-  canvas.addEventListener('click', () => { if (enabled && !engine.isXR() && mouse.hover) select(mouse.hover); });
+  let down = null;
+  canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
+  canvas.addEventListener('click', e => {
+    const dragged = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6;
+    if (dragged || e.detail > 1) return;          // a look-drag or the 2nd click of a double-click is not a selection
+    if (enabled && !engine.isXR() && mouse.hover) select(mouse.hover);
+  });
   document.addEventListener('pointerlockchange', () => {
     mouse.locked = document.pointerLockElement === canvas;
     if (mouse.locked) mouse.ndc.set(0, 0);

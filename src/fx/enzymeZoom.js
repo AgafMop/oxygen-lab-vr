@@ -28,11 +28,11 @@ export async function playEnzymeZoom(ctx, scope) {
   // ---- enter the cell ----
   const saved = { bg: scene.background, fog: scene.fog, env: scene.environment };
   ctx.lab.root.visible = false;
-  const hidden = []; scene.traverse(o => { if (o !== root && o.parent === scene && o !== engine.rig && o.visible) { hidden.push(o); } });
+  const hidden = []; scene.traverse(o => { if (o !== root && o.parent === scene && o !== engine.rig && o.visible && !o.userData.ui) { hidden.push(o); } });
   hidden.forEach(o => { o.visible = false; });
   scene.background = new THREE.Color(0x120a1c);
   scene.fog = new THREE.FogExp2(0x1a0f28, 0.35);
-  engine.rig.position.add(SHIFT);
+  ctx.loco.setOffset(SHIFT);
   scene.add(root);
 
   const head = engine.headPosition(new THREE.Vector3());
@@ -168,7 +168,7 @@ export async function playEnzymeZoom(ctx, scope) {
     off(); cards.forEach(c => c.dispose()); gauge.dispose();
     scene.remove(root);
     root.traverse(o => { if (o.geometry) o.geometry.dispose(); });
-    engine.rig.position.sub(SHIFT);
+    ctx.loco.setOffset(new THREE.Vector3());
     scene.background = saved.bg; scene.fog = saved.fog; scene.environment = saved.env;
     ctx.lab.root.visible = true; hidden.forEach(o => { o.visible = true; });
     ctx.zoomPhase = null;

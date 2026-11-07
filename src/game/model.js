@@ -59,3 +59,20 @@ export function bestTemp(means) {
   for (const [k, m] of Object.entries(means)) if (m != null && (best == null || m > means[best])) best = k;
   return best == null ? null : Number(best);
 }
+
+/** Three robot readings at T. If outI is given, try to make that reading a detectable "forgot to stir" outlier.
+ *  Returns {vals, outIdx} — outIdx is null unless findOutliers flags exactly that reading; never a spurious outlier. */
+export function robotValues(T, rng, outI = null) {
+  for (let tries = 0; tries < 20; tries++) {
+    const vals = [0, 1, 2].map(i => sampleTrial(T, rng, { mixed: i !== outI }));
+    if (outI != null) {
+      const md = [...vals].sort((a, b) => a - b)[1];
+      if (!findOutliers({ [T]: vals }).some(o => o.index === outI)) vals[outI] = Math.round(md * 0.5 * 2) / 2;
+      const f = findOutliers({ [T]: vals });
+      if (f.length === 1 && f[0].index === outI) return { vals, outIdx: outI };
+      if (f.length === 0) { const plain = [0, 1, 2].map(() => sampleTrial(T, rng)); if (!findOutliers({ [T]: plain }).length) return { vals: plain, outIdx: null }; }
+    } else if (!findOutliers({ [T]: vals }).length) return { vals, outIdx: null };
+  }
+  const v = Math.round(trueRate(T) * 2) / 2;
+  return { vals: [v, v, v], outIdx: null };
+}

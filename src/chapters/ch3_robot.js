@@ -1,7 +1,7 @@
 // Chapter 3: plan the temperatures, Robi runs 3 repeats per temperature, the student reads some results.
 import * as THREE from 'three';
-import { sampleTrial, makeRng, trueRate, findOutliers } from '../game/model.js';
-import { SLIDER, FIRST_TEMP } from '../game/config.js';
+import { makeRng, trueRate, robotValues } from '../game/model.js';
+import { SLIDER, FIRST_TEMP, PLAN_MIN, TRIAL_COST } from '../game/config.js';
 import { createApparatus } from '../lab/apparatus.js';
 import { createGraphWall } from '../ui/graphWall.js';
 import { boardAtStation } from './kit.js';
@@ -13,6 +13,10 @@ export async function run(ctx, scope) {
   const rng = makeRng(game.s.seed * 13 + 5);
   if (ctx.params.get('o2') && !ctx.o2Used) { ctx.o2Used = true; game.s.o2 = Number(ctx.params.get('o2')); game.spend(0); }
 
+  // not even the smallest plan fits: open the emergency tanks (once per chapter attempt, costs score)
+  const minCost = (PLAN_MIN - 1) * 3 * TRIAL_COST;
+  let reserve = false;
+  if (game.s.o2 <= minCost) { game.s.o2 = 240; game.s.flags.reserveUsed = true; game.addScore(-100); game.spend(0); reserve = true; }
   ctx.graph ??= createGraphWall(ctx, lab.anchors.A_graphWall);
   ctx.graph.update();
   ctx.robotApp ??= createApparatus(ctx, { at: 'robot', speed: 3 });
@@ -22,15 +26,17 @@ export async function run(ctx, scope) {
   await loco.goTo('robot');
   robi.placeNear(lab.anchors.A_robotBench.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(0.62, 0, -0.1));
   robi.face('happy');
+  if (reserve) await scope.say('c3_reserve');
 
   // ---- plan: temperature chips (37 is locked in) ----
   const b = boardAtStation(ctx, scope, 'robot', { dist: 0.85, height: 1.22 });
   const temps = [];
   for (let t = SLIDER.min; t <= SLIDER.max; t += SLIDER.step) temps.push(t);
   const plan = new Set(game.s.plan.length ? game.s.plan.filter(t => t !== FIRST_TEMP) : []);
-  const fb = scope.add(ui.panel({ w: 0.9, h: 0.09, draw(g, W, H, msg) {
-    g.fillStyle = msg ? ui.C.mars : ui.C.oxy; g.font = `700 ${H * 0.5}px ${ui.FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText({ few: 'צריך לפחות 5 טמפרטורות', many: 'יותר מ-7 טמפרטורות יגמרו את החמצן', oneSided: 'כולן באותו צד — אולי מחכה הפתעה בצד השני?' }[msg] || 'תוכנית טובה! לוחצים הפעלה', W / 2, H / 2);
+  const fb = scope.add(ui.panel({ w: 0.9, h: 0.09, draw(g, W, H, f) {
+    if (!f) return;
+    g.fillStyle = f.msg ? ui.C.mars : ui.C.oxy; g.font = `700 ${H * 0.5}px ${ui.FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText({ few: 'צריך לפחות 5 טמפרטורות', many: 'יותר מ-7 טמפרטורות יגמרו את החמצן', oneSided: 'צריך גם מתחת ל-35° וגם מעל 45°', budget: `התוכנית צריכה ${f.cost} דקות חמצן, ויש רק ${game.s.o2}` }[f.msg] || `תוכנית טובה: ${f.cost} דקות חמצן. לוחצים הפעלה!`, W / 2, H / 2);
   } }));
   fb.mesh.position.set(0, 0.2, 0.01); b.add(fb.mesh);
   const chipW = 0.058, gap = 0.008;
@@ -54,8 +60,9 @@ export async function run(ctx, scope) {
   let lastMsg;
   function refresh() {
     const f = game.planFeedback(fullPlan());
-    fb.redraw(f.msg); go.setEnabled(f.ok);
+    fb.redraw(f); go.setEnabled(f.ok);
     if (f.msg !== lastMsg && f.msg && plan.size >= 4) audio.say('c3_' + f.msg);
+    if (f.ok && lastMsg !== null && lastMsg !== undefined) audio.say('c3_ok');
     lastMsg = f.msg;
   }
   refresh();
@@ -64,36 +71,25 @@ export async function run(ctx, scope) {
   await scope.guard(planned);
   game.s.plan = fullPlan();
   audio.sfx('ok');
+  if (ctx.params.get('o2run') && !ctx.o2runUsed) { ctx.o2runUsed = true; game.s.o2 = Number(ctx.params.get('o2run')); game.spend(0); }
   for (const c of chips) c.dispose(); go.dispose(); fb.dispose();
 
   // ---- robot runs ----
   await scope.say('c3_run');
   const runTemps = game.s.plan.filter(t => t !== FIRST_TEMP);
-  // inject exactly one "forgot to stir" outlier at a temperature where it will show (rate ≥ 15 ml/min)
+  // one "forgot to stir" outlier at a temperature where it really shows (rate ≥ 15 ml/min); none if no such temperature
   const candidates = runTemps.filter(t => trueRate(t) >= 15);
-  const outT = candidates.length ? candidates[Math.floor(rng() * candidates.length)] : runTemps[0];
+  const outT = candidates.length ? candidates[Math.floor(rng() * candidates.length)] : null;
   const outI = Math.floor(rng() * 3);
-  // values per temperature: natural noise, never a spurious outlier; one deliberate unmixed outlier
-  const valuesFor = T => {
-    for (let tries = 0; tries < 20; tries++) {
-      const vals = [0, 1, 2].map(i => sampleTrial(T, rng, { mixed: !(T === outT && i === outI) }));
-      if (T === outT) {
-        const md = [...vals].sort((a, c) => a - c)[1];
-        if (!findOutliers({ [T]: vals }).some(o => o.index === outI)) vals[outI] = Math.round(md * 0.5 * 2) / 2;
-        const f = findOutliers({ [T]: vals });
-        if (f.length === 1 && f[0].index === outI) return vals;
-      } else if (!findOutliers({ [T]: vals }).length) return vals;
-    }
-    return [0, 1, 2].map(() => Math.round(trueRate(T) * 2) / 2);
-  };
+  const valuesFor = T => robotValues(T, rng, T === outT ? outI : null);
   let n = 0;
   for (const T of runTemps) {
     const done = game.s.trials[T]?.length || 0;
     if (done >= 3) continue;
-    const vals = valuesFor(T);
+    const { vals, outIdx } = valuesFor(T);
     await scope.guard(rapp.setBath(T, 1200));
     for (let i = done; i < 3; i++) {
-      const v = vals[i], isOut = T === outT && i === outI;
+      const v = vals[i], isOut = outIdx === i;
       rapp.reset(); rapp.setGas(0); rapp.robotPrep();
       robi.gesture('point');
       await scope.guard(rapp.runTrial(v, 2.4));
@@ -114,11 +110,12 @@ export async function run(ctx, scope) {
       const rb = boardAtStation(ctx, scope, 'robot', { dist: 0.62, height: 1.1, side: -0.28 });
       const mag = scope.add(ui.panel({ w: 0.18, h: 0.24, draw: (g, W, H) => rapp.readingDraw(g, W, H, v) }));
       mag.mesh.position.set(0.14, 0, 0.01); rb.add(mag.mesh);
-      const opts = [v, Math.max(0, v + 3), Math.max(0, v - 2.5)].sort(() => rng() - 0.5);
-      let first = true;
+      const opts = [v, v + 3, v >= 3 ? v - 2.5 : v + 6].sort(() => rng() - 0.5);   // distinct, never negative
+      let first = true, answered = false;
       const cards = opts.map((ml, i) => {
         const c = scope.add(ui.card({ w: 0.1, h: 0.065, label: `${ml} מ״ל`, onSelect: cc => {
-          if (Math.abs(ml - v) <= 1) { cc.setState('right'); audio.sfx('ok'); setTimeout(() => { mag.dispose(); cards.forEach(x => x.dispose()); res(); }, ctx.auto ? 30 : 700); }
+          if (answered) return;
+          if (Math.abs(ml - v) <= 1) { answered = true; cc.setState('right'); audio.sfx('ok'); setTimeout(() => { mag.dispose(); cards.forEach(x => x.dispose()); res(); }, ctx.auto ? 30 : 700); }
           else { cc.setState('wrong'); audio.sfx('no'); if (first) game.s.flags.wrongRead = true; first = false; audio.say('c2_read_wrong'); }
         } }));
         c.mesh.position.set(-0.08, 0.08 - i * 0.08, 0.01); rb.add(c.mesh);

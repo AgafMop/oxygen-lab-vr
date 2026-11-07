@@ -88,6 +88,7 @@ export function createProcedure({ game, rng, trialIndex = 0, goggles = false, re
   function finish({ valid, reason }, fail) {
     const trial = { volume: p.volume, by: 'student', read: 'student', valid, mixed: stirred };
     if (reason) trial.reason = reason;
+    if (valid && !stirred) trial.meta = 'unmixed';   // may surface as an outlier in chapter 4
     game.addTrial(requiredTemp, trial);
     p.step = 'done';
     const done = { volume: p.volume, valid, ...(reason ? { reason } : {}) };

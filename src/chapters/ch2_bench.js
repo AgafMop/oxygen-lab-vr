@@ -104,7 +104,7 @@ export async function run(ctx, scope) {
 
   // ---- dial chooser ----
   function openDial() {
-    if (dialUI || proc.step !== 'dial') return;
+    if (dialUI || busy || proc.step !== 'dial') return;
     const b = boardAtStation(ctx, scope, 'bench', { dist: 0.55, height: 1.05, side: 0.32 });
     const chips = TEMPS.map(t => ui.card({ w: 0.075, h: 0.06, label: `${t}°`, onSelect: () => chooseTemp(t) }));
     chips.forEach(c => scope.add(c));
@@ -115,7 +115,7 @@ export async function run(ctx, scope) {
     if (!dialUI) return;
     dialUI.chips.forEach(c => c.dispose()); dialUI = null;
     if (t >= 90 || t === FIRST_TEMP) {
-      if (t === FIRST_TEMP) await app.setBath(t, 2500);
+      if (t === FIRST_TEMP) { busy = true; try { await app.setBath(t, 2500); } finally { busy = false; } }
       return doAction({ type: 'dial', temp: t });
     }
     audio.sfx('no'); await scope.say('c2_wrongTemp');
@@ -127,10 +127,13 @@ export async function run(ctx, scope) {
     const b = boardAtStation(ctx, scope, 'bench', { dist: 0.6, height: 1.12, side: -0.05 });
     const mag = scope.add(ui.panel({ w: 0.2, h: 0.26, draw: (g, W, H) => app.readingDraw(g, W, H, v) }));
     mag.mesh.position.set(0.16, 0, 0.01); b.add(mag.mesh);
-    const opts = [v, v + (rng() < 0.5 ? 2 : -2), v + (rng() < 0.5 ? 5 : -4)].map(x => Math.max(0, Math.round(x * 2) / 2));
+    const opts = [v, v >= 2 ? v + (rng() < 0.5 ? 2 : -2) : v + 2, v >= 4 ? v + (rng() < 0.5 ? 5 : -4) : v + 5].map(x => Math.round(x * 2) / 2);
     for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
+    let answered = false;
     const cards = opts.map(ml => scope.add(ui.card({ w: 0.1, h: 0.07, label: `${ml} מ״ל`, onSelect: c => {
+      if (answered) return;
       const r = proc.act({ type: 'read', ml });
+      if (r.ok) answered = true;
       if (r.ok) { c.setState('right'); audio.sfx('ok'); audio.say('c2_read_ok'); cleanup(); resolveTrial(r.done); }
       else { c.setState('wrong'); audio.sfx('no'); audio.say('c2_read_wrong'); }
     } })));

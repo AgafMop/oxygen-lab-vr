@@ -58,7 +58,7 @@ export async function run(ctx, scope) {
   out.position.copy(OUTSIDE);
   let shifted = false;
   const restore = () => {
-    if (shifted) { engine.rig.position.sub(OUTSIDE); shifted = false; }
+    if (shifted) { ctx.loco.setOffset(new THREE.Vector3()); shifted = false; }
     hidden.forEach(o => { o.visible = true; });
     scene.remove(out); scene.backgroundIntensity = 1;
     out.traverse(o => { if (o.geometry) o.geometry.dispose(); });
@@ -78,7 +78,7 @@ export async function run(ctx, scope) {
   try {
     await engine.fade(1, 10);
     hidden.forEach(o => { o.visible = false; });
-    engine.rig.position.add(OUTSIDE); shifted = true;
+    ctx.loco.setOffset(OUTSIDE.clone()); shifted = true;
     if (skipBtn) { ui.inFront(skipBtn.mesh, 1.2, 0.45); }
     ctx.introPhase = 'outside';
     audio.sfx('wind', 0.25);

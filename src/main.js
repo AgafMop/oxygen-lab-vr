@@ -67,19 +67,27 @@ async function start(vr) {
   $('boot').hidden = true;
   audio.unlock();
   if (vr) {
-    const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] });
-    await engine.renderer.xr.setSession(session);
-    session.addEventListener('end', () => { $('boot').hidden = false; });
+    try {
+      const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] });
+      await engine.renderer.xr.setSession(session);
+      session.addEventListener('end', () => { $('boot').hidden = false; });
+    } catch (e) { console.warn('VR session refused', e); $('boot').hidden = false; return; }
+  } else if (ctx.started) {
+    return;                       // back from VR to the desktop view: the game is already running
   } else {
     $('hint').hidden = false;
     $('hint').textContent = 'גוררים כדי להסתכל · לחיצה כפולה לנעילת עכבר · W A S D';
     setTimeout(() => { $('hint').hidden = true; }, 6000);
   }
+  if (ctx.started) return;        // re-entering VR after the headset slept: never start a second game
+  ctx.started = true;
+  window.__runs = (window.__runs || 0) + 1;
   ui.wristMeter(game);
   ctx.ready = true;
   if (params.has('uidemo')) return uiDemo();
   if (params.has('fx')) return fxDemo(params.get('fx'));
   if (params.has('trialdemo')) return trialDemo();
+  if (params.has('nogame')) return;     // engine-only tests
   runGame().catch(err => { console.error(err); });
 }
 
@@ -88,6 +96,7 @@ async function runGame() {
   let list = only ? [only] : CHAPTERS.filter(id => CH[id]);
   if (!only && saved?.chapter && CH[saved.chapter] && game.loadSave()) {
     list = list.slice(list.indexOf(saved.chapter));
+    game.spend(0);                 // refresh the O2 meter with the saved value
     if (game.s.flags.goggles) ctx.lab.props.P_goggles.visible = false;
   }
   if (only) seedFor(only);
@@ -156,7 +165,7 @@ async function gameOverPanel() {
 }
 
 function uiDemo() {
-  const card = ui.card({ w: 0.32, h: 0.38, label: 'יש טמפרטורה מיטבית', onSelect: c => c.setState('sel'),
+  const card = ui.card({ w: 0.32, h: 0.38, label: 'יש טמפרטורה מיטבית', onSelect: c => { c.setState('sel'); window.__uiCardState = 'sel'; },
     icon: (g, x, y, w, h) => { g.strokeStyle = ui.C.oxy; g.lineWidth = 10; g.beginPath(); g.moveTo(x, y + h); g.quadraticCurveTo(x + w * 0.6, y - h * 0.6, x + w, y + h); g.stroke(); } });
   ui.inFront(card.mesh, 1.2, 0.05, -0.2);
   const btn = ui.button3d('המשך', () => audio.sfx('ok'));

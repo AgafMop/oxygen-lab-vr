@@ -1,5 +1,8 @@
 // Game state: oxygen, trials, score, decisions, checkpoints, events.
-import { O2_START, TRIAL_COST, PENALTY, MISTAKE_SCORE, PLAN_MIN, PLAN_MAX, SAVE_KEY } from './config.js';
+import { O2_START, TRIAL_COST, PENALTY, MISTAKE_SCORE, PLAN_MIN, PLAN_MAX, SAVE_KEY, FIRST_TEMP } from './config.js';
+
+const RESERVE_O2 = 240;      // emergency tanks after a second game over in the same chapter
+const GAMEOVER_SCORE = 100;
 
 const fresh = seed => ({
   seed, chapter: null, o2: O2_START, score: 0, hypothesis: null, plan: [], trials: {},
@@ -12,6 +15,7 @@ export function createGame({ seed, storage }) {
   const listeners = {};
   const emit = (evt, data) => (listeners[evt] || []).forEach(fn => fn(data));
   let checkpoint = null;
+  const overs = {};             // game overs per chapter (outlives checkpoint restores)
 
   const game = {
     s: fresh(seed),
@@ -64,9 +68,13 @@ export function createGame({ seed, storage }) {
       const snap = checkpoint ?? storage?.get(SAVE_KEY);
       if (!snap) { game.s.over = false; return; }
       const hadGameOver = game.s.flags.hadGameOver || snap.flags?.hadGameOver;
+      const ch = snap.chapter;
+      if (game.s.over) overs[ch] = (overs[ch] || 0) + 1;
       game.s = clone(snap);
       game.s.over = false;
       if (hadGameOver) game.s.flags.hadGameOver = true;
+      game.s.score -= GAMEOVER_SCORE * (overs[ch] || 0);
+      if ((overs[ch] || 0) >= 2 && game.s.o2 < RESERVE_O2) { game.s.o2 = RESERVE_O2; game.s.flags.reserveUsed = true; }
       emit('o2', game.s.o2);
     },
 
@@ -82,8 +90,11 @@ export function createGame({ seed, storage }) {
     planFeedback(plan) {
       if (plan.length < PLAN_MIN) return { ok: false, msg: 'few' };
       if (plan.length > PLAN_MAX) return { ok: false, msg: 'many' };
-      if (plan.every(t => t <= 35) || plan.every(t => t >= 45)) return { ok: false, msg: 'oneSided' };
-      return { ok: true, msg: null };
+      // both sides of body temperature must be explored (the locked 37 counts for neither)
+      if (!plan.some(t => t <= 35) || !plan.some(t => t >= 45)) return { ok: false, msg: 'oneSided' };
+      const cost = plan.filter(t => t !== FIRST_TEMP).length * 3 * TRIAL_COST;
+      if (cost >= game.s.o2) return { ok: false, msg: 'budget', cost };
+      return { ok: true, msg: null, cost };
     },
 
     finalScore() {
