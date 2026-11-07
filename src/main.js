@@ -16,8 +16,11 @@ import * as ch1 from './chapters/ch1_hypothesis.js';
 import * as ch2 from './chapters/ch2_bench.js';
 import * as ch3 from './chapters/ch3_robot.js';
 import * as ch4 from './chapters/ch4_graph.js';
+import * as chEnd from './chapters/ch_end.js';
+import { SAVE_KEY } from './game/config.js';
 
-const CH = { hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4 };
+const CH = { hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4, end: chEnd };
+const CH_NAMES = { hypothesis: 'תדריך והשערה', bench: 'הניסוי בידיים', robot: 'רובי מריץ ניסויים', graph: 'הגרף והאנזים', end: 'סיכום' };
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -28,8 +31,10 @@ const input = createInput(engine);
 const ui = createUI(engine, input);
 const audio = createAudio(ui, { fast: AUTO });
 const seed = Number(params.get('seed')) || (Date.now() % 100000);
-const game = createGame({ seed, storage: createStorage() });
-const ctx = { engine, input, ui, audio, game, ready: false, params, auto: AUTO, seed };
+const storage = createStorage();
+const game = createGame({ seed, storage });
+const ctx = { engine, input, ui, audio, game, storage, ready: false, params, auto: AUTO, seed };
+const saved = !params.has('only') && !params.has('fresh') ? storage.get(SAVE_KEY) : null;
 if (TEST) window.__ctx = ctx;
 
 const $ = id => document.getElementById(id);
@@ -48,6 +53,10 @@ async function boot() {
   ctx.robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45));
   await ui.fontsReady;
   $('enter').disabled = false; $('enter').textContent = 'כניסה במחשב';
+  if (saved?.chapter && CH[saved.chapter] && saved.chapter !== 'hypothesis') {
+    $('resumeNote').hidden = false;
+    $('resumeNote').firstChild.textContent = `נמצאה שמירה: ממשיכים מהפרק „${CH_NAMES[saved.chapter]}”. `;
+  }
   if (navigator.xr && await navigator.xr.isSessionSupported('immersive-vr').catch(() => false)) $('enterVR').hidden = false;
 }
 
@@ -73,7 +82,11 @@ async function start(vr) {
 
 async function runGame() {
   const only = params.get('only');
-  const list = only ? [only] : CHAPTERS.filter(id => CH[id]);
+  let list = only ? [only] : CHAPTERS.filter(id => CH[id]);
+  if (!only && saved?.chapter && CH[saved.chapter] && game.loadSave()) {
+    list = list.slice(list.indexOf(saved.chapter));
+    if (game.s.flags.goggles) ctx.lab.props.P_goggles.visible = false;
+  }
   if (only) seedFor(only);
   for (const id of list) await runChapter(id);
   window.__gameDone = true;
@@ -97,6 +110,12 @@ async function runChapter(id) {
   for (;;) {
     game.setChapter(id);
     const scope = createScope(ctx); ctx.scope = scope;
+    if (TEST) setTimeout(() => {
+      const { renderer, scene, camera } = engine;
+      renderer.info.autoReset = false; renderer.info.reset(); renderer.render(scene, camera);
+      (window.__budget ||= {})[id] = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles };
+      renderer.info.autoReset = true;
+    }, 1500);
     // let a failure animation (ctx.pendingFx) finish before the chapter is torn down
     const offOver = game.on('gameover', () => setTimeout(async () => { await ctx.pendingFx; scope.abort(); }, 0));
     try {

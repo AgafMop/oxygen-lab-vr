@@ -81,13 +81,15 @@ export function createUI(engine, input) {
   function button3d(label, onSelect, { style = 'primary', w = 0.36, h = 0.1 } = {}) {
     let hover = false, enabled = true;
     const p = panel({
-      w, h, draw(g, W, H) {
+      w, h, ppm: Math.max(900, Math.round(200 / h)), draw(g, W, H) {
         g.globalAlpha = enabled ? 1 : 0.35;
         rr(g, 4, 4, W - 8, H - 8, H / 3);
         g.fillStyle = style === 'primary' ? C.mars : C.bg2; g.fill();
         g.lineWidth = hover ? 8 : 4; g.strokeStyle = hover ? C.ink : (style === 'primary' ? C.mars : C.line); g.stroke();
         g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.font = `700 ${Math.round(H * 0.42)}px ${FONT}`; g.fillText(label, W / 2, H / 2 + 2);
+        let f = Math.round(H * 0.42); g.font = `700 ${f}px ${FONT}`;
+        while (g.measureText(label).width > W - H * 0.6 && f > 12) { f -= 2; g.font = `700 ${f}px ${FONT}`; }
+        g.fillText(label, W / 2, H / 2 + 2);
         g.globalAlpha = 1;
       },
     });

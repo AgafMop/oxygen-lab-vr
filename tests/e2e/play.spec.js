@@ -166,3 +166,33 @@ test('chapter 4 auto: outlier disqualified, peak found, enzyme zoom', async ({ p
   expect(calls).toBeLessThanOrEqual(150);
   expect(errors).toEqual([]);
 });
+
+test('full auto run: boot to the end screen', async ({ page }) => {
+  test.setTimeout(900_000);
+  const errors = await boot(page, '&auto');
+  const seen = new Set();
+  for (const id of ['hypothesis', 'bench', 'robot', 'graph', 'end']) {
+    await page.waitForFunction(i => window.__ctx.game.s.chapter === i, id, { timeout: 400_000 });
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: `${SHOTS}/full-${id}.png` });
+    seen.add(id);
+  }
+  await page.waitForFunction(() => window.__gameDone === true, null, { timeout: 300_000 });
+  const final = await page.evaluate(() => window.__final);
+  console.log('final', final, await page.evaluate(() => window.__budget));
+  expect(final.stars).toBeGreaterThanOrEqual(2);
+  const budget = await page.evaluate(() => window.__budget);
+  for (const b of Object.values(budget)) { expect(b.calls).toBeLessThanOrEqual(150); expect(b.tris).toBeLessThanOrEqual(300_000); }
+  expect(errors).toEqual([]);
+});
+
+test('resume: a saved checkpoint continues from that chapter', async ({ page }) => {
+  await page.goto('/?test');
+  await page.evaluate(() => localStorage.setItem('oxylab.v1', JSON.stringify({ seed: 3, chapter: 'robot', o2: 315, score: 0, hypothesis: 'peak', plan: [], trials: { 37: [{ volume: 34, by: 'student', valid: true }, { volume: 35, by: 'student', valid: true }, { volume: 33, by: 'student', valid: true }] }, badges: [], mistakes: [], flags: { goggles: true }, over: false })));
+  const errors = await boot(page, '&auto');
+  await expect(page.locator('#resumeNote')).toBeHidden();
+  await page.waitForFunction(() => window.__ctx.game.s.chapter === 'robot', null, { timeout: 60_000 });
+  const s = await page.evaluate(() => window.__ctx.game.s);
+  expect(s.trials[37].length).toBe(3);
+  expect(errors).toEqual([]);
+});
