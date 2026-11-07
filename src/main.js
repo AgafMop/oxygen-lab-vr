@@ -5,6 +5,9 @@ import { createLocomotion } from './core/locomotion.js';
 import { createUI } from './core/ui3d.js';
 import { createAudio } from './core/audio.js';
 import { loadLab } from './lab/labScene.js';
+import { createApparatus } from './lab/apparatus.js';
+import { createRobi } from './lab/robi.js';
+import * as THREE from 'three';
 import { createGame } from './game/state.js';
 import { createStorage } from './game/storage.js';
 
@@ -28,6 +31,9 @@ async function boot() {
   ctx.loco = createLocomotion(engine, input);
   for (const [id, node] of Object.entries(ctx.lab.stationNodes)) ctx.loco.addStation(id, node, ctx.lab.discs[id]);
   await ctx.loco.goTo('bench', { fade: false });
+  ctx.app = createApparatus(ctx);
+  ctx.robi = createRobi(ctx);
+  ctx.robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45));
   await ui.fontsReady;
   $('enter').disabled = false; $('enter').textContent = 'כניסה במחשב';
   if (navigator.xr && await navigator.xr.isSessionSupported('immersive-vr').catch(() => false)) $('enterVR').hidden = false;
@@ -48,6 +54,8 @@ async function start(vr) {
   ui.wristMeter(game);
   ctx.ready = true;
   if (params.has('uidemo')) return uiDemo();
+  if (params.has('fx')) return fxDemo(params.get('fx'));
+  if (params.has('trialdemo')) return trialDemo();
 }
 
 function uiDemo() {
@@ -58,6 +66,25 @@ function uiDemo() {
   ui.inFront(btn.mesh, 1.2, 0.35, 0.25);
   audio.say('c1_hello');
   game.spend(45);
+}
+
+async function fxDemo(id) {
+  const app = ctx.app;
+  if (id === 'sealedBlast') { await app.pour('3'); await app.addYeast(); await app.setStopper('sealed'); }
+  if (id === 'elephantToothpaste' || id === 'acidMelt') { await app.pour(id === 'acidMelt' ? '30' : '3'); }
+  ctx.robi.face('oops');
+  const shot = app.fx[id]();
+  window.__fxMid = true;
+  await shot;
+  window.__fxDone = true;
+}
+
+async function trialDemo() {
+  const app = ctx.app;
+  await app.goggles();
+  await app.setBath(37, 1500); await app.fillCylinder(); await app.pour('3'); await app.addYeast(); await app.stir();
+  await app.setStopper('tube'); window.__running = true; await app.runTrial(34, 5);
+  window.__fxDone = true;
 }
 
 $('enter').addEventListener('click', () => start(false));

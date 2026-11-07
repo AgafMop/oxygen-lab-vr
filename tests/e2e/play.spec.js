@@ -58,3 +58,24 @@ test('boots and teleports', async ({ page }) => {
   for (const b of [b1, b2]) { expect(b.calls).toBeLessThanOrEqual(150); expect(b.tris).toBeLessThanOrEqual(300_000); }
   expect(errors).toEqual([]);
 });
+
+for (const id of ['splash', 'sealedBlast', 'elephantToothpaste', 'acidMelt', 'boil', 'cylinderNotFilled']) {
+  test(`fx: ${id}`, async ({ page }) => {
+    const errors = await boot(page, `&auto&fx=${id}`);
+    await page.waitForFunction(() => window.__fxMid === true);
+    await page.waitForTimeout(id === 'splash' ? 150 : 900);
+    await page.screenshot({ path: `${SHOTS}/fx-${id}.png` });
+    await page.waitForFunction(() => window.__fxDone === true, null, { timeout: 120_000 });
+    expect(errors).toEqual([]);
+  });
+}
+
+test('trial demo: bubbles fill the cylinder', async ({ page }) => {
+  const errors = await boot(page, '&auto&trialdemo');
+  await page.waitForFunction(() => window.__running === true && window.__ctx.app.gasMl() > 8, null, { timeout: 120_000 });
+  await page.screenshot({ path: `${SHOTS}/trial-running.png` });
+  await page.waitForFunction(() => window.__fxDone === true, null, { timeout: 120_000 });
+  const gas = await page.evaluate(() => window.__ctx.app.gasMl());
+  expect(gas).toBeGreaterThan(30);
+  expect(errors).toEqual([]);
+});

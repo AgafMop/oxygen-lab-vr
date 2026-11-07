@@ -63,7 +63,8 @@ parts = [box('bb', (W, D, T), (0, 0, T / 2), M['steel'], 0.004)]
 for (sx, sy, x, y) in [(W, T, 0, D / 2 - T / 2), (W, T, 0, -D / 2 + T / 2), (T, D, W / 2 - T / 2, 0), (T, D, -W / 2 + T / 2, 0)]:
     parts.append(box('bw', (sx, sy, Hh), (x, y, Hh / 2), M['steel'], 0.003))
 parts.append(box('bpanel', (W * 0.9, 0.03, 0.07), (0, -D / 2 - 0.015, 0.042), M['steelDark'], 0.006))
-parts.append(box('brim', (W + 0.01, D + 0.01, 0.012), (0, 0, Hh), M['steelDark'], 0.004))
+for (sx, sy, x, y) in [(W + 0.01, 0.018, 0, D / 2), (W + 0.01, 0.018, 0, -D / 2), (0.018, D + 0.01, W / 2, 0), (0.018, D + 0.01, -W / 2, 0)]:
+    parts.append(box('brim', (sx, sy, 0.012), (x, y, Hh), M['steelDark'], 0.003))
 at(group('P_bath', parts), 0)
 dial = cyl('P_bathDial', 0.022, 0.02, (0, 0, 0), M['plasticBlue'], 28)
 dial.rotation_euler = (math.pi / 2, 0, 0)
