@@ -23,6 +23,12 @@
   #hint { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:5; background:rgba(11,15,24,.75); color:var(--muted); font-size:13px; padding:6px 14px; border-radius:999px; white-space:nowrap; pointer-events:none; }
   #cross { position:fixed; left:50%; top:50%; width:6px; height:6px; margin:-3px 0 0 -3px; border-radius:50%; background:#fff; box-shadow:0 0 0 2px rgba(0,0,0,.4); z-index:5; display:none; }
   body.locked #cross { display:block; }
+  #sub { position:fixed; bottom:56px; left:50%; transform:translateX(-50%); z-index:6; max-width:min(760px, calc(100% - 32px)); background:rgba(8,12,20,.86); color:var(--ink);
+    font-size:20px; line-height:1.45; padding:10px 18px; border-radius:14px; text-align:right; pointer-events:none; }
+  #o2 { position:fixed; top:14px; right:14px; z-index:6; background:rgba(8,12,20,.86); border-radius:12px; padding:8px 14px; min-width:150px; direction:ltr; font-weight:700; color:var(--oxy); pointer-events:none; }
+  #o2 b { font-size:22px; margin-left:6px; } #o2 span { font-size:14px; }
+  #o2 .bar { height:6px; background:#2a3a55; border-radius:3px; margin-top:6px; overflow:hidden; } #o2 .bar i { display:block; height:100%; background:var(--mars); }
+  #o2.low { color:#e85a4f; } #o2.low .bar i { background:#e85a4f; }
   [hidden] { display:none !important; }
 </style>
 <script type="importmap">
@@ -45,6 +51,8 @@
 </div>
 <div id="hint" hidden></div>
 <div id="cross"></div>
+<div id="sub" hidden></div>
+<div id="o2" hidden><span>O₂</span><b>06:00</b><div class="bar"><i style="width:100%"></i></div></div>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

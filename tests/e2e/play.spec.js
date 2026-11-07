@@ -22,6 +22,15 @@ const budget = page => page.evaluate(() => {
   return r;
 });
 
+test('ui: card, subtitle and O2 meter render in Hebrew', async ({ page }) => {
+  const errors = await boot(page, '&uidemo');
+  await page.waitForTimeout(700);
+  await expect(page.locator('#sub')).toContainText('רובי');
+  await expect(page.locator('#o2 b')).toHaveText('05:15');
+  await page.screenshot({ path: `${SHOTS}/ui.png` });
+  expect(errors).toEqual([]);
+});
+
 test('boots and teleports', async ({ page }) => {
   const errors = await boot(page);
   await page.waitForTimeout(800);
