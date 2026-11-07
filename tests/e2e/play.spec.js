@@ -79,3 +79,15 @@ test('trial demo: bubbles fill the cylinder', async ({ page }) => {
   expect(gas).toBeGreaterThan(30);
   expect(errors).toEqual([]);
 });
+
+test('chapter 1 auto', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=hypothesis');
+  await page.waitForFunction(() => window.__ctx.loco.current === 'bench' && document.querySelectorAll('canvas').length, null, { timeout: 120_000 });
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${SHOTS}/ch1.png` });
+  await page.waitForFunction(() => window.__chapterDone === 'hypothesis', null, { timeout: 150_000 });
+  const s = await page.evaluate(() => window.__ctx.game.s);
+  expect(s.hypothesis).toBe('peak');
+  expect(s.flags.varsFirstTry).toBe(true);
+  expect(errors).toEqual([]);
+});

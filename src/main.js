@@ -10,6 +10,11 @@ import { createRobi } from './lab/robi.js';
 import * as THREE from 'three';
 import { createGame } from './game/state.js';
 import { createStorage } from './game/storage.js';
+import { CHAPTERS } from './game/config.js';
+import { createScope, Abort } from './chapters/kit.js';
+import * as ch1 from './chapters/ch1_hypothesis.js';
+
+const CH = { hypothesis: ch1 };
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -56,6 +61,52 @@ async function start(vr) {
   if (params.has('uidemo')) return uiDemo();
   if (params.has('fx')) return fxDemo(params.get('fx'));
   if (params.has('trialdemo')) return trialDemo();
+  runGame().catch(err => { console.error(err); });
+}
+
+async function runGame() {
+  const only = params.get('only');
+  const list = only ? [only] : CHAPTERS.filter(id => CH[id]);
+  for (const id of list) await runChapter(id);
+  window.__gameDone = true;
+}
+
+async function runChapter(id) {
+  for (;;) {
+    game.setChapter(id);
+    const scope = createScope(ctx); ctx.scope = scope;
+    const offOver = game.on('gameover', () => scope.abort());
+    try {
+      await CH[id].run(ctx, scope);
+      offOver(); scope.cleanup();
+      window.__chapterDone = id;
+      return;
+    } catch (e) {
+      offOver(); scope.cleanup();
+      if (!(e instanceof Abort)) throw e;
+    }
+    await gameOverPanel();
+    game.restoreCheckpoint();
+    ctx.app.clearFx(); ctx.app.reset();
+  }
+}
+
+async function gameOverPanel() {
+  window.__gameOver = (window.__gameOver || 0) + 1;
+  audio.sfx('alarm');
+  const p = ui.panel({ w: 0.8, h: 0.34, draw(g, W, H) {
+    ui.rr(g, 6, 6, W - 12, H - 12, 30); g.fillStyle = 'rgba(40,8,6,0.94)'; g.fill(); g.lineWidth = 8; g.strokeStyle = ui.C.bad; g.stroke();
+    g.fillStyle = ui.C.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `800 ${H * 0.26}px ${ui.FONT}`; g.fillText('החמצן אזל', W / 2, H * 0.36);
+    g.font = `500 ${H * 0.13}px ${ui.FONT}`; g.fillStyle = ui.C.muted; g.fillText('הבסיס בחושך. נחזור לתחילת הפרק ונתקן.', W / 2, H * 0.68);
+  } });
+  ui.inFront(p.mesh, 1.3, -0.05);
+  const btn = ui.button3d('חזרה לנקודת השמירה', () => {}, { w: 0.44, h: 0.1 });
+  ui.inFront(btn.mesh, 1.28, 0.22);
+  const s = createScope(ctx);
+  audio.say('gameover');
+  await s.waitSelect(btn.mesh);
+  p.dispose(); btn.dispose();
 }
 
 function uiDemo() {
