@@ -115,9 +115,8 @@ for x in (-3.0, 3.0):
     for y in (Y0 + 0.07, Y1 - 0.07):
         S(box('ribV', (0.16, 0.14, H), (x, y, H / 2), M['rib'], 0.01))
     S(box('ribC', (0.16, Y1 - Y0, 0.14), (x, 0, H - 0.07), M['rib'], 0.01))
-for y in (-1.5, 1.5):
-    for x in (X0 + 0.07, X1 - 0.07):
-        S(box('ribVy', (0.14, 0.16, H), (x, y, H / 2), M['rib'], 0.01))
+for (x, y) in [(X1 - 0.07, -1.5), (X1 - 0.07, 1.5), (X0 + 0.07, -1.5), (X0 + 0.07, 2.45)]:
+    S(box('ribVy', (0.14, 0.16, H), (x, y, H / 2), M['rib'], 0.01))
 
 # ceiling LED troughs along x
 for y in (-1.0, 1.2):
@@ -373,7 +372,7 @@ if A.get('preview'):
 
 img = bake_lightmap(lab, 1024 if DRAFT else 2048, 32 if DRAFT else 128)
 print(f'[lab] bake done {time.time() - t0:.1f}s')
-save_image(img, os.path.join(OUT, 'lab_lightmap.webp'), 'WEBP', 90)
+save_image(img, os.path.join(OUT, 'lab_lightmap.webp'), 'WEBP', 90, scale=0.5)
 save_image(img, os.path.join(CACHE, 'lab_lightmap.png'), 'PNG')
 
 export_glb(os.path.join(CACHE, 'lab_raw.glb'),

@@ -4,3 +4,5 @@ playwright-report/
 blender/cache/
 .superpowers/
 *.blend1
+test-results/
+playwright-report/

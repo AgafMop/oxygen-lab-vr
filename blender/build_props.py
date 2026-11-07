@@ -58,11 +58,11 @@ def at(o, x, y=0.0):
     o.location = (x, y, 0); return o
 
 # ---- water bath (open top) + dial + display ----
-W, D, Hh, T = 0.36, 0.27, 0.18, 0.01
+W, D, Hh, T = 0.36, 0.27, 0.085, 0.01
 parts = [box('bb', (W, D, T), (0, 0, T / 2), M['steel'], 0.004)]
 for (sx, sy, x, y) in [(W, T, 0, D / 2 - T / 2), (W, T, 0, -D / 2 + T / 2), (T, D, W / 2 - T / 2, 0), (T, D, -W / 2 + T / 2, 0)]:
     parts.append(box('bw', (sx, sy, Hh), (x, y, Hh / 2), M['steel'], 0.003))
-parts.append(box('bpanel', (W * 0.9, 0.03, 0.09), (0, -D / 2 - 0.015, 0.06), M['steelDark'], 0.006))
+parts.append(box('bpanel', (W * 0.9, 0.03, 0.07), (0, -D / 2 - 0.015, 0.042), M['steelDark'], 0.006))
 parts.append(box('brim', (W + 0.01, D + 0.01, 0.012), (0, 0, Hh), M['steelDark'], 0.004))
 at(group('P_bath', parts), 0)
 dial = cyl('P_bathDial', 0.022, 0.02, (0, 0, 0), M['plasticBlue'], 28)
@@ -71,9 +71,9 @@ bpy.context.view_layer.objects.active = dial
 for x in bpy.context.selected_objects: x.select_set(False)
 dial.select_set(True)
 bpy.ops.object.transform_apply(rotation=True)
-sub(dial, 'P_bath', (0.1, -0.165, 0.06))
+sub(dial, 'P_bath', (0.1, -0.165, 0.042))
 disp = box('P_bathDisplay', (0.09, 0.004, 0.045), (0, 0, 0), M['screen'])
-sub(disp, 'P_bath', (-0.07, -0.168, 0.06))
+sub(disp, 'P_bath', (-0.07, -0.168, 0.042))
 
 # ---- 250 ml Erlenmeyer ----
 fl = lathe('P_flask', [(0.0, 0.0), (0.042, 0.0), (0.045, 0.006), (0.043, 0.02), (0.017, 0.105), (0.0165, 0.14), (0.019, 0.143), (0.0185, 0.146)], (0, 0, 0), M['glass'], 40)

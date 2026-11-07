@@ -271,8 +271,15 @@ def bake_lightmap(o, size=2048, samples=128, name='lightmap'):
     return img
 
 
-def save_image(img, path, fmt='WEBP', quality=88):
+def save_image(img, path, fmt='WEBP', quality=88, scale=1.0):
+    """Save with the Standard view transform (linear→sRGB only); `scale` multiplies RGB for headroom."""
     sc = bpy.context.scene
+    sc.view_settings.view_transform = 'Standard'
+    sc.view_settings.look = 'None'
+    if scale != 1.0:
+        import numpy as np
+        px = np.empty(len(img.pixels), dtype=np.float32); img.pixels.foreach_get(px)
+        px = px.reshape(-1, 4); px[:, :3] *= scale; img.pixels.foreach_set(px.ravel())
     s = sc.render.image_settings
     s.file_format = fmt
     if fmt in ('WEBP', 'JPEG'):

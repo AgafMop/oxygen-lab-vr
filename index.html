@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מחולל החמצן</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;800&display=swap">
+<style>
+  :root { --bg:#0b0f18; --ink:#eef2f8; --muted:#aeb9cc; --mars:#e8643a; --oxy:#3cc4bc; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:16px/1.5 Heebo, "Segoe UI", sans-serif; overflow:hidden; }
+  canvas { display:block; }
+  #boot { position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; text-align:center; padding:24px 16px;
+    background:radial-gradient(ellipse at 50% 80%, rgba(170,70,30,.55), rgba(11,15,24,.97) 70%); }
+  #boot .tag { color:var(--mars); letter-spacing:.06em; font-size:14px; }
+  #boot h1 { margin:0; font-size:clamp(36px,8vw,64px); font-weight:800; line-height:1; }
+  #boot p { margin:0; max-width:560px; color:var(--muted); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+  .btn { font:700 18px Heebo, sans-serif; border:0; border-radius:12px; padding:14px 28px; cursor:pointer; background:var(--mars); color:#fff; }
+  .btn.alt { background:#16233a; border:1px solid #3a4c6a; }
+  .btn:disabled { opacity:.5; cursor:wait; }
+  .btn:focus-visible { outline:3px solid var(--oxy); outline-offset:3px; }
+  #hint { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:5; background:rgba(11,15,24,.75); color:var(--muted); font-size:13px; padding:6px 14px; border-radius:999px; white-space:nowrap; pointer-events:none; }
+  #cross { position:fixed; left:50%; top:50%; width:6px; height:6px; margin:-3px 0 0 -3px; border-radius:50%; background:#fff; box-shadow:0 0 0 2px rgba(0,0,0,.4); z-index:5; display:none; }
+  body.locked #cross { display:block; }
+  [hidden] { display:none !important; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="boot">
+  <div class="tag">● שידור חירום · בסיס תמר, מאדים</div>
+  <h1>מחולל החמצן</h1>
+  <p>סופת אבק השביתה את מחולל החמצן. רק אתם יכולים לגלות איך להפעיל את מחולל הגיבוי.</p>
+  <div class="row">
+    <button class="btn" id="enterVR" type="button" hidden>כניסה במשקפי VR</button>
+    <button class="btn alt" id="enter" type="button" disabled>טוען…</button>
+  </div>
+  <p style="font-size:13px">במחשב: גוררים כדי להסתכל, W A S D לתזוזה, לחיצה לבחירה, 1–4 קפיצה בין תחנות.</p>
+</div>
+<div id="hint" hidden></div>
+<div id="cross"></div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
