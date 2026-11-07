@@ -14,8 +14,9 @@ import { CHAPTERS } from './game/config.js';
 import { createScope, Abort } from './chapters/kit.js';
 import * as ch1 from './chapters/ch1_hypothesis.js';
 import * as ch2 from './chapters/ch2_bench.js';
+import * as ch3 from './chapters/ch3_robot.js';
 
-const CH = { hypothesis: ch1, bench: ch2 };
+const CH = { hypothesis: ch1, bench: ch2, robot: ch3 };
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -35,6 +36,10 @@ const $ = id => document.getElementById(id);
 async function boot() {
   ctx.lab = await loadLab(engine);
   ctx.loco = createLocomotion(engine, input);
+  // robot station: step back and aim between the robot bench and the graph wall so both fit in view
+  const st = ctx.lab.stationNodes.robot; st.position.x = 1.1; st.position.z = 0.55;
+  st.userData.yaw = Math.atan2(-(3.5 - 1.1), -(0.75 - 0.55));
+  ctx.lab.discs.robot.position.x = 1.1; ctx.lab.discs.robot.position.z = 0.55;
   for (const [id, node] of Object.entries(ctx.lab.stationNodes)) ctx.loco.addStation(id, node, ctx.lab.discs[id]);
   await ctx.loco.goTo('bench', { fade: false });
   ctx.app = createApparatus(ctx);
@@ -68,8 +73,23 @@ async function start(vr) {
 async function runGame() {
   const only = params.get('only');
   const list = only ? [only] : CHAPTERS.filter(id => CH[id]);
+  if (only) seedFor(only);
   for (const id of list) await runChapter(id);
   window.__gameDone = true;
+}
+
+// test helper: state a chapter expects when run alone (?only=<id>)
+function seedFor(id) {
+  const order = CHAPTERS.indexOf(id);
+  if (order > CHAPTERS.indexOf('bench')) {
+    game.s.hypothesis ??= 'peak'; game.s.flags.goggles = true;
+    for (const v of [34, 35.5, 33]) game.addTrial(37, { volume: v, by: 'student', read: 'student', mixed: true });
+  }
+  if (order > CHAPTERS.indexOf('robot')) {
+    const data = { 20: [12.5, 13, 12], 30: [21.5, 22.5, 22], 45: [44, 45.5, 31], 55: [11, 10, 11.5], 65: [0.5, 0.5, 1] };
+    game.s.plan = [20, 30, 37, 45, 55, 65];
+    for (const [T, vs] of Object.entries(data)) vs.forEach((v, i) => game.addTrial(Number(T), { volume: v, by: 'robot', read: 'auto', ...(T === '45' && i === 2 ? { meta: 'unmixed', mixed: false } : {}) }));
+  }
 }
 
 async function runChapter(id) {

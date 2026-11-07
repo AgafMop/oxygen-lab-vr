@@ -10,10 +10,10 @@ const BENCH_Y = 0.72;
 const mat = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.3, ...opts });
 const tmat = (color, opacity, opts = {}) => mat(color, { transparent: true, opacity, depthWrite: false, ...opts });
 
-export function createApparatus(ctx, { at = 'bench' } = {}) {
+export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
   const { engine, lab, ui, audio } = ctx;
   const { scene, camera } = engine;
-  const tween = makeTween(engine, ctx.auto ? 8 : 1);
+  const tween = makeTween(engine, (ctx.auto ? 8 : 1) * speed);
   const P = lab.props;
   const wp = o => o.getWorldPosition(new THREE.Vector3());
 
@@ -244,6 +244,11 @@ export function createApparatus(ctx, { at = 'bench' } = {}) {
       bubRate = 0; audio.sfx('bubbles', false);
     },
     gasMl: () => gasMl,
+    /** Robot shortcut: charged flask (peroxide + stirred yeast) with the tube connected. */
+    robotPrep() {
+      flaskLiq.visible = true; flaskLiq.material.color.set(0xd9c39a); flaskLiq.material.opacity = 0.8;
+      flaskLiq.scale.y = 0.022; flaskLiq.position.y = 0.013; buildTube(); tubeMesh.visible = true;
+    },
     emptyFlask() {
       flaskLiq.visible = false; flaskLiq.material.color.set(0xbfe3ff); flaskLiq.material.opacity = 0.55;
       yeastLayer.visible = false; yeastLayer.userData.n = 0; yeastLayer.scale.y = 1; foamTop.visible = false;
