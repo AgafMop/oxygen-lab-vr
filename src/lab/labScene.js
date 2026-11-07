@@ -5,8 +5,8 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 export const TUNE = {
-  lightMapIntensity: 2 * Math.PI * 0.45,  // bake saved at 0.5 scale; Lambert has 1/π
-  staticEnv: 0.18, detailEnv: 0.55, propEnv: 0.9, exposure: 1.0,
+  lightMapIntensity: 2 * Math.PI * 0.22,  // bake saved at 0.5 scale; tuned by eye (ACES)
+  staticEnv: 0.08, detailEnv: 0.55, propEnv: 0.9, exposure: 1.0,
 };
 
 // where each prop sits (anchor + offset in three coords, metres)
@@ -53,7 +53,7 @@ export async function loadLab(engine, base = 'assets/') {
     else if (o.name.startsWith('FX_alarm')) alarms.push(o);
     if (!o.isMesh) return;
     let p = o; while (p && !p.name.startsWith('LAB_')) p = p.parent;
-    const group = p?.name;
+    const group = p?.name.replace(/_\d+$/, '');   // multi-material meshes split into LAB_static_1, _2 …
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of mats) {
       if (group === 'LAB_static') {

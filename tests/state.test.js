@@ -108,7 +108,7 @@ test('review F4: a plan that costs more oxygen than is left is refused', () => {
   g.s.o2 = 150;                       // 6 robot temps × 3 × 15 = 270 > 150
   assert.equal(g.planFeedback([10, 20, 30, 37, 45, 55, 65]).msg, 'budget');
   assert.equal(g.planFeedback([20, 30, 37, 45, 55]).msg, 'budget');   // 4×45 = 180 > 150
-  g.s.o2 = 200;
+  g.s.o2 = 220;
   assert.equal(g.planFeedback([20, 30, 37, 45, 55]).ok, true);
 });
 

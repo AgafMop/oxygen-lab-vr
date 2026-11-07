@@ -1,6 +1,7 @@
 // Chapter 3: plan the temperatures, Robi runs 3 repeats per temperature, the student reads some results.
 import * as THREE from 'three';
-import { makeRng, trueRate, robotValues } from '../game/model.js';
+import { makeRng, trueRate, robotValues, sampleTrial } from '../game/model.js';
+import { decide, azoulayScene, leakFx, stormHits } from './ch3_events.js';
 import { SLIDER, FIRST_TEMP, PLAN_MIN, TRIAL_COST } from '../game/config.js';
 import { createApparatus } from '../lab/apparatus.js';
 import { createGraphWall } from '../ui/graphWall.js';
@@ -14,7 +15,7 @@ export async function run(ctx, scope) {
   if (ctx.params.get('o2') && !ctx.o2Used) { ctx.o2Used = true; game.s.o2 = Number(ctx.params.get('o2')); game.spend(0); }
 
   // not even the smallest plan fits: open the emergency tanks (once per chapter attempt, costs score)
-  const minCost = (PLAN_MIN - 1) * 3 * TRIAL_COST;
+  const minCost = (PLAN_MIN - 1) * 3 * TRIAL_COST + 2 * TRIAL_COST;
   let reserve = false;
   if (game.s.o2 <= minCost) { game.s.o2 = 240; game.s.flags.reserveUsed = true; game.addScore(-100); game.spend(0); reserve = true; }
   ctx.graph ??= createGraphWall(ctx, lab.anchors.A_graphWall);
@@ -82,23 +83,55 @@ export async function run(ctx, scope) {
   const outT = candidates.length ? candidates[Math.floor(rng() * candidates.length)] : null;
   const outI = Math.floor(rng() * 3);
   const valuesFor = T => robotValues(T, rng, T === outT ? outI : null);
-  let n = 0;
+  // story events: Azoulay after the 1st temperature, a leaking stopper at the 2nd, the dust storm at the 4th
+  const leakT = runTemps[1] ?? null, stormT = runTemps.length > 3 ? runTemps[3] : runTemps[runTemps.length - 1];
+  let n = 0, k = 0, leakDone = false, stormDone = false, azDone = false;
+  const validAt = T => (game.s.trials[T] || []).filter(t => t.valid).length;
   for (const T of runTemps) {
-    const done = game.s.trials[T]?.length || 0;
-    if (done >= 3) continue;
+    if (validAt(T) >= 3) { k++; continue; }
     const { vals, outIdx } = valuesFor(T);
     await scope.guard(rapp.setBath(T, 1200));
-    for (let i = done; i < 3; i++) {
+    let i = validAt(T);
+    while (i < 3) {
       const v = vals[i], isOut = outIdx === i;
+      const leakHere = !leakDone && T === leakT && i === (outIdx === 1 ? 0 : 1);
+      const stormHere = !stormDone && !leakHere && T === stormT && T !== leakT && i === (outIdx === 0 ? 1 : 0);
       rapp.reset(); rapp.setGas(0); rapp.robotPrep();
       robi.gesture('point');
+      if (leakHere) {
+        leakDone = true;
+        const lv = Math.round(v * 0.55 * 2) / 2;
+        const stop = leakFx(ctx, scope, rapp.props.flask);
+        await scope.guard(rapp.runTrial(lv, 2.4)); stop();
+        robi.face('oops'); await scope.say('leak_1'); robi.face('think'); await scope.say('leak_2');
+        const honest = await decide(ctx, scope, ['לפסול ולמדוד שוב', 'להשאיר']);
+        if (honest) { game.addTrial(T, { volume: lv, by: 'robot', read: 'auto', valid: false, reason: 'leak' }); game.markDecision(true); robi.face('happy'); await scope.say('leak_ok'); }
+        else { game.addTrial(T, { volume: lv, by: 'robot', read: 'auto', meta: 'leak' }); game.markDecision(false); await scope.say('leak_keep'); i++; }
+        continue;
+      }
+      if (stormHere) {
+        stormDone = true;
+        const clear = await stormHits(ctx, scope);
+        const sv = sampleTrial(T - 8, rng);
+        await scope.guard(Promise.all([rapp.setBath(T - 8, 1600), rapp.runTrial(sv, 2.4)]));
+        robi.face('think'); await scope.say('storm_2');
+        const honest = await decide(ctx, scope, ['פוסלים וחוזרים', 'ממשיכים ורושמים']);
+        if (honest) { game.addTrial(T, { volume: sv, by: 'robot', read: 'auto', valid: false, reason: 'storm' }); game.markDecision(true); game.award('stormCalm'); robi.face('happy'); await scope.say('storm_ok'); }
+        else { game.addTrial(T, { volume: sv, by: 'robot', read: 'auto', meta: 'storm' }); game.markDecision(false); await scope.say('storm_keep'); i++; }
+        await scope.guard(clear());
+        await scope.guard(rapp.setBath(T, 1000));
+        continue;
+      }
       await scope.guard(rapp.runTrial(v, 2.4));
       const studentReads = n++ % 3 === 1;
       let read = 'auto';
       if (studentReads) { read = 'student'; await scope.guard(readByStudent(v)); }
       game.addTrial(T, { volume: v, by: 'robot', read, ...(isOut ? { meta: 'unmixed', mixed: false } : {}) });
       audio.sfx('click');
+      i++;
     }
+    k++;
+    if (k === 1 && !azDone) { azDone = true; await azoulayScene(ctx, scope); }
   }
   rapp.reset();
   robi.face('wow');

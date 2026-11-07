@@ -129,8 +129,11 @@ test('chapter 3 auto: plan, 15 robot trials, one unmixed outlier', async ({ page
   await page.waitForFunction(() => window.__chapterDone === 'robot', null, { timeout: 170_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
   const all = Object.values(s.trials).flat();
-  expect(all.length).toBe(18);
+  expect(all.length).toBe(20);                                   // 3 student + 15 robot + leak + storm (both redone)
   expect(all.filter(t => t.meta === 'unmixed').length).toBe(1);
+  expect(all.filter(t => t.reason === 'leak').length).toBe(1);
+  expect(all.filter(t => t.reason === 'storm').length).toBe(1);
+  expect(s.badges).toContain('stormCalm');
   expect(s.plan).toEqual([20, 30, 37, 45, 55, 65]);
   await page.evaluate(() => window.__ctx.loco.goTo('robot', { fade: false }));
   await page.waitForTimeout(500);
@@ -143,8 +146,8 @@ test('chapter 3 low oxygen: game over mid-run, then restore and finish', async (
   await page.waitForFunction(() => window.__gameOver === 1, null, { timeout: 170_000 });
   await page.waitForFunction(() => window.__chapterDone === 'robot', null, { timeout: 170_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
-  expect(Object.values(s.trials).flat().length).toBe(18);
-  expect(s.o2).toBe(360 - 18 * 15);
+  expect(Object.values(s.trials).flat().length).toBe(20);
+  expect(s.o2).toBe(360 - 20 * 15);
   expect(errors).toEqual([]);
 });
 

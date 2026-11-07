@@ -92,7 +92,7 @@ export function createGame({ seed, storage }) {
       if (plan.length > PLAN_MAX) return { ok: false, msg: 'many' };
       // both sides of body temperature must be explored (the locked 37 counts for neither)
       if (!plan.some(t => t <= 35) || !plan.some(t => t >= 45)) return { ok: false, msg: 'oneSided' };
-      const cost = plan.filter(t => t !== FIRST_TEMP).length * 3 * TRIAL_COST;
+      const cost = plan.filter(t => t !== FIRST_TEMP).length * 3 * TRIAL_COST + 2 * TRIAL_COST;   // + a margin for redoing a spoiled trial
       if (cost >= game.s.o2) return { ok: false, msg: 'budget', cost };
       return { ok: true, msg: null, cost };
     },
