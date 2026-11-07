@@ -147,3 +147,22 @@ test('chapter 3 low oxygen: game over mid-run, then restore and finish', async (
   expect(s.o2).toBe(360 - 18 * 15);
   expect(errors).toEqual([]);
 });
+
+test('chapter 4 auto: outlier disqualified, peak found, enzyme zoom', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=graph&zoomhold');
+  for (const phase of ['cold', 'warm', 'hot']) {
+    await page.waitForFunction(p => window.__ctx.zoomPhase === p, phase, { timeout: 170_000 });
+    await page.waitForTimeout(phase === 'hot' ? 2500 : 1500);
+    await page.screenshot({ path: `${SHOTS}/zoom-${phase}.png` });
+  }
+  await page.waitForFunction(() => window.__chapterDone === 'graph', null, { timeout: 170_000 });
+  const s = await page.evaluate(() => window.__ctx.game.s);
+  expect(s.trials[45][2].valid).toBe(false);
+  expect(s.badges).toContain('detective');
+  expect(s.badges).toContain('scienceSense');
+  expect(s.flags.decisionWrong).toBeFalsy();
+  expect(Math.abs(s.peakPick - 45)).toBeLessThanOrEqual(5);
+  const calls = await page.evaluate(() => window.__ctx.engine.renderer.info.render.calls);
+  expect(calls).toBeLessThanOrEqual(150);
+  expect(errors).toEqual([]);
+});

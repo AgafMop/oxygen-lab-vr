@@ -15,8 +15,9 @@ import { createScope, Abort } from './chapters/kit.js';
 import * as ch1 from './chapters/ch1_hypothesis.js';
 import * as ch2 from './chapters/ch2_bench.js';
 import * as ch3 from './chapters/ch3_robot.js';
+import * as ch4 from './chapters/ch4_graph.js';
 
-const CH = { hypothesis: ch1, bench: ch2, robot: ch3 };
+const CH = { hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4 };
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
