@@ -13,8 +13,9 @@ import { createStorage } from './game/storage.js';
 import { CHAPTERS } from './game/config.js';
 import { createScope, Abort } from './chapters/kit.js';
 import * as ch1 from './chapters/ch1_hypothesis.js';
+import * as ch2 from './chapters/ch2_bench.js';
 
-const CH = { hypothesis: ch1 };
+const CH = { hypothesis: ch1, bench: ch2 };
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -75,7 +76,8 @@ async function runChapter(id) {
   for (;;) {
     game.setChapter(id);
     const scope = createScope(ctx); ctx.scope = scope;
-    const offOver = game.on('gameover', () => scope.abort());
+    // let a failure animation (ctx.pendingFx) finish before the chapter is torn down
+    const offOver = game.on('gameover', () => setTimeout(async () => { await ctx.pendingFx; scope.abort(); }, 0));
     try {
       await CH[id].run(ctx, scope);
       offOver(); scope.cleanup();

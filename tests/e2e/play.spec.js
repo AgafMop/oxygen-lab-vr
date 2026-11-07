@@ -91,3 +91,33 @@ test('chapter 1 auto', async ({ page }) => {
   expect(s.flags.varsFirstTry).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('chapter 2 auto: three valid trials at 37', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=bench');
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 170_000 });
+  const s = await page.evaluate(() => window.__ctx.game.s);
+  expect(s.trials[37].filter(t => t.valid).length).toBe(3);
+  expect(s.o2).toBe(315);
+  await page.screenshot({ path: `${SHOTS}/ch2-done.png` });
+  expect(errors).toEqual([]);
+});
+
+test('chapter 2 autofail sealedBlast costs 15 more minutes', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=bench&autofail=sealedBlast');
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 170_000 });
+  const s = await page.evaluate(() => window.__ctx.game.s);
+  expect(s.trials[37].filter(t => t.valid).length).toBe(3);
+  expect(s.o2).toBe(300);
+  expect(errors).toEqual([]);
+});
+
+test('chapter 2 autofail acidMelt: game over, restore, finish', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=bench&autofail=acidMelt');
+  await page.waitForFunction(() => window.__gameOver === 1, null, { timeout: 170_000 });
+  await page.screenshot({ path: `${SHOTS}/gameover.png` });
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 170_000 });
+  const s = await page.evaluate(() => window.__ctx.game.s);
+  expect(s.o2).toBe(315);
+  expect(s.flags.hadGameOver).toBe(true);
+  expect(errors).toEqual([]);
+});

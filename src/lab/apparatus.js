@@ -244,9 +244,23 @@ export function createApparatus(ctx, { at = 'bench' } = {}) {
       bubRate = 0; audio.sfx('bubbles', false);
     },
     gasMl: () => gasMl,
+    emptyFlask() {
+      flaskLiq.visible = false; flaskLiq.material.color.set(0xbfe3ff); flaskLiq.material.opacity = 0.55;
+      yeastLayer.visible = false; yeastLayer.userData.n = 0; yeastLayer.scale.y = 1; foamTop.visible = false;
+      tubeMesh.visible = false; if (app.stopper) goHome(app.stopper); app.stopper = null;
+    },
+    /** Pulse a prop's emissive to hint at it (null clears). */
+    hint(obj) {
+      if (app._hintOff) { app._hintOff(); app._hintOff = null; }
+      if (!obj) return;
+      const mats = [];
+      obj.traverse(o => { if (o.isMesh && o.material.emissive) mats.push([o.material, o.material.emissive.clone()]); });
+      const off = engine.onFrame(() => { const k = 0.25 + 0.25 * Math.sin(performance.now() * 0.008); for (const [m] of mats) m.emissive.setRGB(0.24 * k * 2, 0.77 * k * 2, 0.74 * k * 2); });
+      app._hintOff = () => { off(); for (const [m, e] of mats) m.emissive.copy(e); };
+    },
     setGas,
     reset() {
-      setGas(50); flaskLiq.visible = false; yeastLayer.visible = false; yeastLayer.userData.n = 0; yeastLayer.scale.y = 1; foamTop.visible = false;
+      app.hint(null); setGas(50); flaskLiq.visible = false; yeastLayer.visible = false; yeastLayer.userData.n = 0; yeastLayer.scale.y = 1; foamTop.visible = false;
       tubeMesh.visible = false; if (app.stopper) goHome(app.stopper); app.stopper = null; tDisp?.redraw(60); bubRate = 0;
     },
     async goggles() {
@@ -254,7 +268,8 @@ export function createApparatus(ctx, { at = 'bench' } = {}) {
       await arc(g, engine.headPosition(new THREE.Vector3()), 600, 0.05);
       g.visible = false; goggleOv.visible = true;
       await tween(300, k => { goggleOv.material.opacity = k * 0.9; });
-      await tween(900, k => { goggleOv.material.opacity = 0.9 * (1 - k) + 0.12 * k; });
+      await tween(900, k => { goggleOv.material.opacity = 0.9 * (1 - k); });
+      goggleOv.visible = false;
     },
     readingDraw(g, W, H, volume) {     // magnified view of the meniscus for the reading card
       g.fillStyle = '#dfe9f2'; g.fillRect(0, 0, W, H);

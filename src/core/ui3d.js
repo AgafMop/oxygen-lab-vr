@@ -49,19 +49,19 @@ export function createUI(engine, input) {
   }
 
   /** Selectable card with an optional icon painter. states: idle | sel | right | wrong | off */
-  function card({ w = 0.3, h = 0.36, label = '', icon, onSelect, fs }) {
+  function card({ w = 0.3, h = 0.36, label = '', icon, onSelect, fs, ppm = Math.max(900, Math.round(220 / Math.min(w, h))) }) {
     let state = 'idle', hover = false;
     const p = panel({
-      w, h, draw(g, W, H) {
+      w, h, ppm, draw(g, W, H) {
         const fill = { sel: C.sel, right: '#1C4D36', wrong: '#5A2420' }[state] || C.bg2;
         const stroke = { sel: C.oxy, right: C.good, wrong: C.bad }[state] || (hover ? C.ink : C.line);
         g.globalAlpha = state === 'off' ? 0.35 : 1;
         rr(g, 6, 6, W - 12, H - 12, 28); g.fillStyle = fill; g.fill(); g.lineWidth = hover ? 12 : 7; g.strokeStyle = stroke; g.stroke();
-        const labelH = label ? Math.min(H * 0.26, 110) : 0;
+        const labelH = !label ? 0 : icon ? Math.min(H * 0.26, 110) : H;
         if (icon) { g.save(); icon(g, 30, 30, W - 60, H - 60 - labelH); g.restore(); }
         if (label) {
           g.fillStyle = C.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
-          let f = fs || Math.round(Math.min(labelH * 0.55, W / 7));
+          let f = fs || Math.round(icon ? Math.min(labelH * 0.55, W / 7) : H * 0.42);
           g.font = `700 ${f}px ${FONT}`;
           while (g.measureText(label).width > W - 40 && f > 18) { f -= 2; g.font = `700 ${f}px ${FONT}`; }
           g.fillText(label, W / 2, icon ? H - labelH / 2 - 18 : H / 2);
