@@ -27,7 +27,21 @@ export function createAudio(ui, { fast = false } = {}) {
     s.buffer = b; s.connect(fl).connect(g).connect(out()); s.start(t);
   }
 
-  let bubbleTimer = null;
+  let bubbleTimer = null, wind = null;
+  function windLoop(level) {
+    const a = ac(); if (!a) return;
+    if (!wind) {
+      const b = a.createBuffer(1, a.sampleRate * 2, a.sampleRate), ch = b.getChannelData(0);
+      let last = 0; for (let i = 0; i < ch.length; i++) { last = last * 0.97 + (Math.random() * 2 - 1) * 0.03; ch[i] = last * 6; }
+      const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), lfo = a.createOscillator(), lg = a.createGain();
+      s.buffer = b; s.loop = true; f.type = 'lowpass'; f.frequency.value = 500; g.gain.value = 0;
+      lfo.frequency.value = 0.13; lg.gain.value = 260; lfo.connect(lg).connect(f.frequency);
+      s.connect(f).connect(g).connect(out()); s.start(); lfo.start();
+      wind = { g, f };
+    }
+    wind.g.gain.linearRampToValueAtTime(level * 0.5, a.currentTime + 1.2);
+    wind.f.frequency.linearRampToValueAtTime(400 + level * 1400, a.currentTime + 1.2);
+  }
   const SFX = {
     click: () => tone(880, 0.06, 'triangle', 0.07),
     ok: () => { tone(660, 0.12); tone(990, 0.18, 'sine', 0.1, 0.1); },
@@ -39,6 +53,9 @@ export function createAudio(ui, { fast = false } = {}) {
     sizzle: () => noise(2.5, { vol: 0.08, type: 'highpass', f: 4000, attack: 0.2 }),
     boil: () => { noise(2.5, { vol: 0.1, type: 'lowpass', f: 400, attack: 0.4 }); for (let i = 0; i < 18; i++) tone(200 + Math.random() * 300, 0.05, 'sine', 0.05, Math.random() * 2.3); },
     alarm: () => { for (let i = 0; i < 3; i++) { tone(740, 0.25, 'sawtooth', 0.05, i * 0.6); tone(520, 0.25, 'sawtooth', 0.05, i * 0.6 + 0.3); } },
+    wind: level => windLoop(level),
+    rumble: () => { tone(45, 2.5, 'sine', 0.35, 0, 30); noise(2.5, { vol: 0.25, type: 'lowpass', f: 250, attack: 0.6 }); },
+    sparks: () => { for (let i = 0; i < 10; i++) noise(0.05, { vol: 0.12, type: 'highpass', f: 3000, when: Math.random() * 0.8 }); },
     whoosh: () => noise(0.7, { vol: 0.1, f: 300, f2: 2500, q: 0.8, attack: 0.2 }),
     win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.4, 'sine', 0.1, i * 0.15)),
     bubbles(on) {

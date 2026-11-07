@@ -6,3 +6,5 @@ blender/cache/
 *.blend1
 test-results/
 playwright-report/
+intro/clips/
+__pycache__/

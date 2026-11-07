@@ -7,5 +7,5 @@ export const PLAN_MIN = 5;
 export const PLAN_MAX = 7;
 export const SLIDER = { min: 5, max: 70, step: 5 };
 export const FIRST_TEMP = 37;
-export const CHAPTERS = ['hypothesis', 'bench', 'robot', 'graph', 'end'];
+export const CHAPTERS = ['intro', 'hypothesis', 'bench', 'robot', 'graph', 'rescue', 'life', 'end'];
 export const SAVE_KEY = 'oxylab.v1';

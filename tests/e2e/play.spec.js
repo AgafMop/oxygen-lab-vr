@@ -196,3 +196,17 @@ test('resume: a saved checkpoint continues from that chapter', async ({ page }) 
   expect(s.trials[37].length).toBe(3);
   expect(errors).toEqual([]);
 });
+
+test('intro: outside, storm hits, inside with alarms; then chapter 1 starts', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=intro&hold');
+  for (const ph of ['outside', 'storm', 'hit', 'inside']) {
+    await page.waitForFunction(p => window.__ctx.introPhase === p, ph, { timeout: 170_000 });
+    await page.waitForTimeout(ph === 'storm' ? 2500 : 1200);
+    await page.screenshot({ path: `${SHOTS}/intro-${ph}.png` });
+  }
+  await page.waitForFunction(() => window.__chapterDone === 'intro', null, { timeout: 170_000 });
+  const s = await page.evaluate(() => ({ done: window.__ctx.game.s.flags.introDone, y: window.__ctx.engine.rig.position.y }));
+  expect(s.done).toBe(true);
+  expect(Math.abs(s.y)).toBeLessThan(1);
+  expect(errors).toEqual([]);
+});

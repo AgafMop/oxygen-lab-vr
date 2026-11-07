@@ -9,9 +9,11 @@ export async function run(ctx, scope) {
   robi.placeNear(entry, new THREE.Vector3(-0.2, 0, -0.9));
   robi.face('happy');
 
-  await scope.say('c1_commander');
-  await scope.say('c1_azoulay');
-  await scope.say('c1_commander2');
+  if (!game.s.flags.introDone) {        // the opening already covers the briefing
+    await scope.say('c1_commander');
+    await scope.say('c1_azoulay');
+    await scope.say('c1_commander2');
+  }
   robi.gesture('wave');
   await scope.say('c1_hello');
 

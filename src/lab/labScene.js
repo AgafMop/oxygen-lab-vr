@@ -24,9 +24,10 @@ export async function loadLab(engine, base = 'assets/') {
   const { scene, renderer } = engine;
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const texLoader = new THREE.TextureLoader();
-  const [lab, props, robi, lightmap, pano] = await Promise.all([
+  const [lab, props, robi, lightmap, pano, crew] = await Promise.all([
     loader.loadAsync(base + 'lab.glb'), loader.loadAsync(base + 'props.glb'), loader.loadAsync(base + 'robi.glb'),
     texLoader.loadAsync(base + 'lab_lightmap.webp'), texLoader.loadAsync(base + 'mars_pano.webp'),
+    loader.loadAsync(base + 'crew.glb'),
   ]);
 
   // ---- environment & background ----
@@ -104,6 +105,11 @@ export async function loadLab(engine, base = 'assets/') {
   const face = stationNodes.robot.getWorldPosition(new THREE.Vector3()); face.y = 0;
   robiRoot.lookAt(face);
 
+  // red alarm light: added at load (intensity 0) so turning it on later doesn't recompile every shader
+  const alarmLight = new THREE.PointLight(0xff2a14, 0, 14, 1.4);
+  alarmLight.position.set(0, 2.6, 0);
+  scene.add(alarmLight);
+
   // ---- dust motes ----
   const N = 260, pos = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) pos.set([(Math.random() - 0.5) * 7.4, Math.random() * 2.8 + 0.1, (Math.random() - 0.5) * 5.6], i * 3);
@@ -116,5 +122,5 @@ export async function loadLab(engine, base = 'assets/') {
     dustGeo.attributes.position.needsUpdate = true;
   });
 
-  return { root, anchors, stationNodes, discs, screens, alarms, props: P, robi: R, glass, dust };
+  return { root, anchors, stationNodes, discs, screens, alarms, props: P, robi: R, glass, dust, crewScene: crew.scene, alarmLight };
 }

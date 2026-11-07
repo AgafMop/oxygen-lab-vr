@@ -12,15 +12,17 @@ import { createGame } from './game/state.js';
 import { createStorage } from './game/storage.js';
 import { CHAPTERS } from './game/config.js';
 import { createScope, Abort } from './chapters/kit.js';
+import * as ch0 from './chapters/ch0_intro.js';
 import * as ch1 from './chapters/ch1_hypothesis.js';
+import { createMood } from './fx/mood.js';
 import * as ch2 from './chapters/ch2_bench.js';
 import * as ch3 from './chapters/ch3_robot.js';
 import * as ch4 from './chapters/ch4_graph.js';
 import * as chEnd from './chapters/ch_end.js';
 import { SAVE_KEY } from './game/config.js';
 
-const CH = { hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4, end: chEnd };
-const CH_NAMES = { hypothesis: 'תדריך והשערה', bench: 'הניסוי בידיים', robot: 'רובי מריץ ניסויים', graph: 'הגרף והאנזים', end: 'סיכום' };
+const CH = { intro: ch0, hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4, end: chEnd };
+const CH_NAMES = { intro: 'פתיחה', rescue: 'הצלת הבסיס', life: 'מסדרון החיים', hypothesis: 'תדריך והשערה', bench: 'הניסוי בידיים', robot: 'רובי מריץ ניסויים', graph: 'הגרף והאנזים', end: 'סיכום' };
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -50,6 +52,7 @@ async function boot() {
   await ctx.loco.goTo('bench', { fade: false });
   ctx.app = createApparatus(ctx);
   ctx.robi = createRobi(ctx);
+  ctx.mood = createMood(ctx);
   ctx.robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45));
   await ui.fontsReady;
   $('enter').disabled = false; $('enter').textContent = 'כניסה במחשב';
@@ -95,6 +98,7 @@ async function runGame() {
 // test helper: state a chapter expects when run alone (?only=<id>)
 function seedFor(id) {
   const order = CHAPTERS.indexOf(id);
+  if (order > CHAPTERS.indexOf('intro')) { game.s.flags.introDone = true; ctx.mood.set({ light: 0.85, gen: 0.15 }); }
   if (order > CHAPTERS.indexOf('bench')) {
     game.s.hypothesis ??= 'peak'; game.s.flags.goggles = true;
     for (const v of [34, 35.5, 33]) game.addTrial(37, { volume: v, by: 'student', read: 'student', mixed: true });
