@@ -155,3 +155,16 @@ test('review F5: a throwing localStorage getter does not break storage', () => {
     if (desc) Object.defineProperty(globalThis, 'localStorage', desc); else delete globalThis.localStorage;
   }
 });
+
+test('handDone needs two temperatures with three valid student trials each', () => {
+  const g = newGame();
+  const add = (T, n, valid = true) => { for (let i = 0; i < n; i++) g.addTrial(T, { volume: 10, by: 'student', valid }); };
+  add(20, 2); add(40, 2);
+  assert.equal(g.handDone(), false);
+  add(20, 1); add(40, 1);
+  assert.equal(g.handDone(), true);
+  const h = newGame();
+  const addH = (T, n, valid = true) => { for (let i = 0; i < n; i++) h.addTrial(T, { volume: 10, by: 'student', valid }); };
+  addH(20, 3); addH(20, 1, false); addH(40, 3);
+  assert.equal(h.handDone(), true);
+});

@@ -160,3 +160,14 @@ test('dialing a different temperature is refused with a reason', () => {
 test('requiredTemp is mandatory', () => {
   assert.throws(() => createProcedure({ game: createGame({ seed: 1 }), rng: makeRng(5) }));
 });
+
+test('a built-in leak gives a clearly low but valid reading marked leak', () => {
+  const game = createGame({ seed: 1 });
+  const p = createProcedure({ game, rng: makeRng(5), trialIndex: 1, goggles: true, requiredTemp: 40, bathReady: true, leak: true });
+  for (const a of [{ type: 'fillCylinder' }, { type: 'pour', bottle: '3' }, { type: 'yeast' }, { type: 'stir' }, { type: 'stopper', kind: 'tube' }, { type: 'timer' }]) p.act(a);
+  p.act({ type: 'read', ml: p.volume });
+  const t = game.s.trials[40][0];
+  assert.equal(t.valid, true);
+  assert.equal(t.meta, 'leak');
+  assert.ok(t.volume < 30, `volume ${t.volume}`);
+});

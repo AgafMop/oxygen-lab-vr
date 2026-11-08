@@ -18,7 +18,7 @@ export async function run(ctx, scope) {
   const validIdx = (T, i) => game.s.trials[T].slice(0, i + 1).filter(t => t.valid).length - 1;   // index among valid values
   const flaggedAll = Object.entries(game.s.trials)
     .flatMap(([T, l]) => l.map((t, i) => ({ temp: Number(T), index: i, t })))
-    .filter(x => x.t.valid && x.t.meta === 'unmixed' && detected.some(o => o.temp === x.temp && o.index === validIdx(x.temp, x.index)))
+    .filter(x => x.t.valid && (x.t.meta === 'unmixed' || x.t.meta === 'leak') && detected.some(o => o.temp === x.temp && o.index === validIdx(x.temp, x.index)))
     .sort((p, q) => (p.t.by === 'student' ? -1 : 0) - (q.t.by === 'student' ? -1 : 0));
   let firstCause = true, keptAny = false;
   for (const flagged of flaggedAll) {
@@ -26,7 +26,8 @@ export async function run(ctx, scope) {
     robi.face('think');
     await scope.say('c4_outlier');
     const b = boardAtStation(ctx, scope, 'robot', { dist: 0.75, height: 1.05, side: -0.15 });
-    const causes = [['לא ערבבו', true], ['דליפה', false], ['רעש רגיל', false]];
+    const isLeak = flagged.t.meta === 'leak';
+    const causes = [['לא ערבבו', !isLeak], ['דליפה', isLeak], ['רעש רגיל', false]];
     let wrongHere = false, resolve;
     const ok = new Promise(r => { resolve = r; });
     const cards = causes.map(([label, right], i) => {
@@ -38,11 +39,11 @@ export async function run(ctx, scope) {
       c.mesh.position.set((1 - i) * 0.19, 0, 0.01); b.add(c.mesh);
       return c;
     });
-    if (ctx.auto) setTimeout(() => input.select(cards[0].mesh), 60);
+    if (ctx.auto) setTimeout(() => input.select(cards[causes.findIndex(c => c[1])].mesh), 60);
     await scope.guard(ok);
     if (!wrongHere) game.markDecision(true);
     robi.face('oops'); robi.gesture('shrug');
-    await scope.say(flagged.t.by === 'student' ? 'c2_stir' : 'c4_outlier_ok');
+    await scope.say(isLeak ? 'leak_ok' : flagged.t.by === 'student' ? 'c2_stir' : 'c4_outlier_ok');
     cards.forEach(c => c.dispose());
 
     // a real choice: disqualifying is honest; keeping it costs the decision and visibly bends the mean
@@ -54,7 +55,7 @@ export async function run(ctx, scope) {
     disq.mesh.position.set(0.12, 0, 0.01); keep.mesh.position.set(-0.12, 0, 0.01); b.add(disq.mesh, keep.mesh);
     const v = await scope.guard(new Promise(r => { onDecide = r; if (ctx.auto) setTimeout(() => input.select(disq.mesh), 60); }));
     graph.highlight(null);
-    if (v) { game.disqualify(flagged.temp, flagged.index, 'unmixed'); game.markDecision(true); audio.sfx('ok'); robi.face('happy'); await scope.say('c4_disq_ok'); }
+    if (v) { game.disqualify(flagged.temp, flagged.index, flagged.t.meta); game.markDecision(true); audio.sfx('ok'); robi.face('happy'); await scope.say('c4_disq_ok'); }
     else { keptAny = true; game.markDecision(false); audio.sfx('no'); robi.face('think'); await scope.say('c4_keep'); }
     disq.dispose(); keep.dispose();
   }

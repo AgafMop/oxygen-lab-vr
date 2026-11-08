@@ -1,5 +1,5 @@
 // Game state: oxygen, trials, score, decisions, checkpoints, events.
-import { O2_START, TRIAL_COST, PENALTY, MISTAKE_SCORE, ROBOT_MIN, ROBOT_MAX, SAVE_KEY } from './config.js';
+import { O2_START, TRIAL_COST, PENALTY, MISTAKE_SCORE, ROBOT_MIN, ROBOT_MAX, SAVE_KEY, HAND_TEMP_COUNT, HAND_REPEATS } from './config.js';
 
 const RESERVE_O2 = 240;      // emergency tanks after a second game over in the same chapter
 const GAMEOVER_SCORE = 100;
@@ -48,6 +48,11 @@ export function createGame({ seed, storage }) {
       (game.s.trials[T] ||= []).push({ valid: true, ...trial });
       emit('trial', { T, index: game.s.trials[T].length - 1 });
       if (!free) game.spend(TRIAL_COST);
+    },
+    /** The hands-on part is complete: HAND_TEMP_COUNT temperatures with HAND_REPEATS valid student trials each. */
+    handDone() {
+      const full = game.handTemps().filter(T => game.s.trials[T].filter(t => t.by === 'student' && t.valid).length >= HAND_REPEATS);
+      return full.length >= HAND_TEMP_COUNT;
     },
     /** Temperatures the student measured by hand (a valid student trial), ascending. */
     handTemps() {

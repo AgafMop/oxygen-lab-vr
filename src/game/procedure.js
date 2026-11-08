@@ -8,7 +8,7 @@ const NEXT_TARGET = {
 const LEVELS = ['full', 'highlight', 'none'];
 const NO = { ok: false };
 
-export function createProcedure({ game, rng, trialIndex = 0, goggles = false, requiredTemp, bathReady = false }) {
+export function createProcedure({ game, rng, trialIndex = 0, goggles = false, requiredTemp, bathReady = false, leak = false }) {
   if (requiredTemp == null) throw new Error('createProcedure: requiredTemp is required');
   let temp = bathReady ? requiredTemp : null, filled = false, spoons = 0, stirred = false;
 
@@ -66,7 +66,7 @@ export function createProcedure({ game, rng, trialIndex = 0, goggles = false, re
 
         case 'timer':
           if (p.step !== 'timer') return NO;
-          p.volume = sampleTrial(temp, rng, { mixed: stirred });
+          p.volume = sampleTrial(temp, rng, { mixed: stirred, leak });   // leak: the tube joint lets gas escape (not the student's fault)
           if (!filled) return finish({ valid: false, reason: 'cylinder' }, 'cylinderNotFilled');
           p.step = 'read'; return { ok: true };
 
@@ -90,6 +90,7 @@ export function createProcedure({ game, rng, trialIndex = 0, goggles = false, re
     const trial = { volume: p.volume, by: 'student', read: 'student', valid, mixed: stirred };
     if (reason) trial.reason = reason;
     if (valid && !stirred) trial.meta = 'unmixed';   // may surface as an outlier in chapter 4
+    if (valid && leak) trial.meta = 'leak';
     game.addTrial(requiredTemp, trial);
     p.step = 'done';
     const done = { volume: p.volume, valid, ...(reason ? { reason } : {}) };

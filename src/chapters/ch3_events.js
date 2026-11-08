@@ -6,8 +6,8 @@ import { boardAtStation } from './kit.js';
 import { makeTween } from '../core/tween.js';
 
 /** Two-button decision on a board in front of the robot station. Resolves true for the first (honest) choice. */
-export async function decide(ctx, scope, [yesLabel, noLabel]) {
-  const b = boardAtStation(ctx, scope, 'robot', { dist: 0.72, height: 1.22, side: 0.12 });   // clear of Robi's face
+export async function decide(ctx, scope, [yesLabel, noLabel], { station = 'robot', place = { dist: 0.72, height: 1.22, side: 0.12 } } = {}) {
+  const b = boardAtStation(ctx, scope, station, place);   // robot station default: clear of Robi's face
   let onPick = () => {};
   const yes = scope.add(ctx.ui.button3d(yesLabel, () => onPick(true), { w: 0.3, h: 0.08 }));
   const no = scope.add(ctx.ui.button3d(noLabel, () => onPick(false), { style: 'ghost', w: 0.3, h: 0.08 }));
@@ -46,14 +46,15 @@ export async function azoulayScene(ctx, scope) {
 }
 
 /** Orange leak bubbles escaping the robot flask's stopper while `p` runs. */
-export function leakFx(ctx, scope, flask) {
+export function leakFx(ctx, scope, flask, { subtle = false } = {}) {
   const { engine } = ctx;
-  const N = 60, mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff9a4a, transparent: true, opacity: 0.85 }), N);
+  const N = subtle ? 14 : 60, rate = subtle ? 0.12 : 0.6, size = subtle ? 0.6 : 1;   // subtle: a few clear bubbles you only see if you look
+  const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: subtle ? 0xdff6ff : 0xff9a4a, transparent: true, opacity: subtle ? 0.6 : 0.85 }), N);
   mesh.frustumCulled = false; engine.scene.add(mesh); scope.add(mesh);
   const P = [], M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3();
   const mouth = flask.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.15, 0));
   const off = engine.onFrame(dt => {
-    if (P.length < N && Math.random() < 0.6) P.push({ p: mouth.clone(), v: new THREE.Vector3((Math.random() - 0.5) * 0.12, 0.05 + Math.random() * 0.1, (Math.random() - 0.5) * 0.12), s: 0.004 + Math.random() * 0.004, age: 0 });
+    if (P.length < N && Math.random() < rate) P.push({ p: mouth.clone(), v: new THREE.Vector3((Math.random() - 0.5) * 0.12, 0.05 + Math.random() * 0.1, (Math.random() - 0.5) * 0.12), s: (0.004 + Math.random() * 0.004) * size, age: 0 });
     for (let i = P.length - 1; i >= 0; i--) { const b = P[i]; b.age += dt; b.p.addScaledVector(b.v, dt); if (b.age > 1.4) P.splice(i, 1); }
     mesh.count = P.length; mesh.visible = P.length > 0;
     P.forEach((b, i) => { M4.compose(b.p, Q, S.setScalar(b.s)); mesh.setMatrixAt(i, M4); });

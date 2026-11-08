@@ -1,7 +1,7 @@
 // Chapter 3: the student picks the robot's extra temperatures (not the ones done by hand); Robi completes the
 // student's temperatures to three repeats, then runs 3 repeats per new temperature; the student reads some results.
 import * as THREE from 'three';
-import { makeRng, trueRate, robotValues, sampleTrial, completeValues } from '../game/model.js';
+import { makeRng, trueRate, robotValues, sampleTrial, completeValues, findOutliers } from '../game/model.js';
 import { decide, azoulayScene, leakFx, stormHits } from './ch3_events.js';
 import { SLIDER, ROBOT_MIN, TRIAL_COST } from '../game/config.js';
 import { createApparatus } from '../lab/apparatus.js';
@@ -101,6 +101,11 @@ export async function run(ctx, scope) {
       audio.sfx('click');
     }
   }
+  // a still-valid deviating reading among the student's own repeats (kept leak / forgot to stir) is the chapter-4 outlier
+  for (const T of hand) {
+    const vl = game.s.trials[T].filter(t => t.valid);
+    if (findOutliers({ [T]: vl.map(t => t.volume) }).some(o => vl[o.index].by === 'student')) studentOut = true;
+  }
   const runTemps = game.s.plan.filter(t => !hand.includes(t));
   // one "forgot to stir" outlier at a temperature where it really shows (rate ≥ 15 ml/min); none if no such temperature
   const candidates = studentOut ? [] : runTemps.filter(t => trueRate(t) >= 15);
@@ -157,7 +162,7 @@ export async function run(ctx, scope) {
       i++;
     }
     k++;
-    if (!why3) { why3 = true; robi.face('think'); await scope.say('c2_why3'); robi.face('happy'); }   // three repeats, three different results
+    if (!why3) { why3 = true; await scope.say('c3_like_you'); }   // three repeats, just like the student did
     if (k === 1 && !azDone) { azDone = true; await azoulayScene(ctx, scope); }
   }
   rapp.reset();

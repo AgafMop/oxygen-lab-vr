@@ -98,81 +98,99 @@ test('chapter 1 auto', async ({ page }) => {
 
 const handOf = s => Object.entries(s.trials).filter(([, l]) => l.some(t => t.by === 'student' && t.valid)).map(([T]) => Number(T));
 
-test('chapter 2 auto: three valid trials at three chosen temperatures', async ({ page }) => {
-  const errors = await boot(page, '&auto&only=bench&hand=20,40,60');
-  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 170_000 });
+const own = (s, T) => (s.trials[T] || []).filter(t => t.by === 'student');
+
+test('chapter 2 auto: two chosen temperatures × three repeats, a built-in leak caught by the why-three card', async ({ page }) => {
+  test.setTimeout(480_000);
+  const errors = await boot(page, '&auto&only=bench&hand=20,40');
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 300_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
-  expect(handOf(s)).toEqual([20, 40, 60]);
-  for (const T of [20, 40, 60]) expect(s.trials[T].filter(t => t.valid).length).toBe(1);
-  expect(s.o2).toBe(315);
+  expect(handOf(s)).toEqual([20, 40]);
+  for (const T of [20, 40]) expect(own(s, T).filter(t => t.valid).length).toBe(3);
+  const leak = own(s, 20).filter(t => t.meta === 'leak');
+  expect(leak.length).toBe(1);
+  expect(leak[0].valid).toBe(false);                      // the auto driver disqualifies it on the why-three card
+  expect(own(s, 20).length).toBe(4);
+  expect(s.o2).toBe(360 - 15 * 7);
+  expect(await page.evaluate(() => window.__ctx.why3Shown)).toBe(3);   // 20° twice (before and after the redo) + 40°
   await page.screenshot({ path: `${SHOTS}/ch2-done.png` });
+  await expectTextFits(page);
   expect(errors).toEqual([]);
 });
 
 test('chapter 2 autofail sealedBlast costs 15 more minutes', async ({ page }) => {
+  test.setTimeout(480_000);
   const errors = await boot(page, '&auto&only=bench&autofail=sealedBlast');
-  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 170_000 });
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 300_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
-  expect(handOf(s)).toEqual([20, 40, 60]);
-  expect(s.o2).toBe(300);
+  expect(handOf(s)).toEqual([20, 40]);
+  expect(s.o2).toBe(360 - 15 * 7 - 15);
   expect(errors).toEqual([]);
 });
 
 test('chapter 2: a failed trial is redone at the same temperature', async ({ page }) => {
+  test.setTimeout(480_000);
   const errors = await boot(page, '&auto&only=bench&autofail=cylinderNotFilled');
-  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 170_000 });
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 300_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
-  expect(s.trials[20].map(t => t.valid)).toEqual([false, true]);
-  expect(handOf(s)).toEqual([20, 40, 60]);
+  expect(own(s, 20)[0].valid).toBe(false);
+  expect(own(s, 20)[0].reason).toBe('cylinder');
+  expect(own(s, 20).filter(t => t.valid).length).toBe(3);
+  expect(handOf(s)).toEqual([20, 40]);
   expect(errors).toEqual([]);
 });
 
 test('chapter 2: 90° is a boil trap — no trial there, chosen again', async ({ page }) => {
+  test.setTimeout(480_000);
   const errors = await boot(page, '&auto&only=bench&autofail=boil');
-  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 170_000 });
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 300_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
   expect(s.trials[90]).toBeUndefined();
   expect(s.mistakes).toContain('boiling');
-  expect(s.o2).toBe(360 - 15 - 45);
-  expect(handOf(s)).toEqual([20, 40, 60]);
+  expect(s.o2).toBe(360 - 15 - 15 * 7);
+  expect(handOf(s)).toEqual([20, 40]);
   expect(errors).toEqual([]);
 });
 
 test('chapter 2 autofail acidMelt: game over, restore, finish', async ({ page }) => {
+  test.setTimeout(480_000);
   const errors = await boot(page, '&auto&only=bench&autofail=acidMelt');
   await page.waitForFunction(() => window.__gameOver === 1, null, { timeout: 170_000 });
   await page.screenshot({ path: `${SHOTS}/gameover.png` });
-  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 170_000 });
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 400_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
-  expect(s.o2).toBe(315);
+  expect(s.o2).toBe(360 - 15 * 7);
   expect(s.flags.hadGameOver).toBe(true);
   await expectTextFits(page);
   expect(errors).toEqual([]);
 });
 
 test('chapter 3 auto: plan, 15 robot trials, one unmixed outlier', async ({ page }) => {
+  test.setTimeout(480_000);
   const errors = await boot(page, '&auto&only=robot');
   await page.waitForFunction(() => Object.values(window.__ctx.game.s.trials).flat().length >= 9, null, { timeout: 170_000 });
   await page.screenshot({ path: `${SHOTS}/ch3-running.png` });
   await page.waitForFunction(() => window.__chapterDone === 'robot', null, { timeout: 170_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
   const all = Object.values(s.trials).flat();
-  expect(all.length).toBe(20);                                   // 3 hand + 6 completions + 9 robot + leak + storm (both redone)
+  expect(all.length).toBe(17);                                   // 6 hand + 9 robot + leak + storm (both redone)
   expect(all.filter(t => t.meta === 'unmixed').length).toBe(1);
   expect(all.filter(t => t.reason === 'leak').length).toBe(1);
   expect(all.filter(t => t.reason === 'storm').length).toBe(1);
   expect(s.badges).toContain('stormCalm');
-  expect(s.plan).toEqual([10, 20, 30, 40, 50, 60]);
+  expect(s.plan).toEqual([10, 20, 30, 40, 50]);
   for (const T of s.plan) expect(s.trials[T].filter(t => t.valid).length).toBe(3);
-  expect(s.o2).toBe(315 - 15 * all.filter(t => t.by === 'robot' && !t.fill).length);   // completions are free
+  expect(all.filter(t => t.fill).length).toBe(0);                // the student's temperatures already have three repeats
+  expect(s.o2).toBe(270 - 15 * all.filter(t => t.by === 'robot').length);
   await page.evaluate(() => window.__ctx.loco.goTo('robot', { fade: false }));
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${SHOTS}/graph-wall.png` });
   expect(errors).toEqual([]);
 });
 
-test('chapter 3: a student\'s forgotten stir becomes the outlier, the robot plants none', async ({ page }) => {
-  const errors = await boot(page, '&auto&only=robot&handUnmixed=40');
+test('chapter 3: a student\'s kept deviating reading is the outlier, the robot plants none', async ({ page }) => {
+  test.setTimeout(480_000);
+  const errors = await boot(page, '&auto&only=robot&handLeak=20');
   await page.waitForFunction(() => window.__chapterDone === 'robot', null, { timeout: 300_000 });
   const r = await page.evaluate(async () => {
     const { findOutliers } = await import('./src/game/model.js');
@@ -180,19 +198,20 @@ test('chapter 3: a student\'s forgotten stir becomes the outlier, the robot plan
     const byT = Object.fromEntries(Object.entries(s.trials).map(([T, l]) => [T, l.filter(t => t.valid).map(t => t.volume)]));
     return { out: findOutliers(byT), robotUnmixed: Object.values(s.trials).flat().filter(t => t.by === 'robot' && t.meta === 'unmixed').length };
   });
-  expect(r.out).toEqual([{ temp: 40, index: 0 }]);
+  expect(r.out).toEqual([{ temp: 20, index: 1 }]);
   expect(r.robotUnmixed).toBe(0);
   expect(errors).toEqual([]);
 });
 
 test('chapter 3 low oxygen: game over mid-run, then restore and finish', async ({ page }) => {
+  test.setTimeout(480_000);
   const errors = await boot(page, '&auto&only=robot&o2run=40');
   await page.waitForFunction(() => window.__gameOver === 1, null, { timeout: 170_000 });
   await page.waitForFunction(() => window.__chapterDone === 'robot', null, { timeout: 170_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
   const all = Object.values(s.trials).flat();
-  expect(all.length).toBe(20);
-  expect(s.o2).toBe(315 - 15 * all.filter(t => t.by === 'robot' && !t.fill).length);
+  expect(all.length).toBe(17);
+  expect(s.o2).toBe(270 - 15 * all.filter(t => t.by === 'robot').length);
   await expectTextFits(page);
   expect(errors).toEqual([]);
 });
@@ -206,7 +225,7 @@ test('chapter 4 auto: outlier disqualified, peak found, enzyme zoom', async ({ p
   }
   await page.waitForFunction(() => window.__chapterDone === 'graph', null, { timeout: 170_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
-  expect(s.trials[40][2].valid).toBe(false);
+  expect(s.trials[30][2].valid).toBe(false);
   expect(s.badges).toContain('detective');
   expect(s.badges).toContain('scienceSense');
   expect(s.flags.decisionWrong).toBeFalsy();
@@ -214,6 +233,17 @@ test('chapter 4 auto: outlier disqualified, peak found, enzyme zoom', async ({ p
   const calls = await page.evaluate(() => window.__ctx.engine.renderer.info.render.calls);
   expect(calls).toBeLessThanOrEqual(150);
   await expectTextFits(page);
+  expect(errors).toEqual([]);
+});
+
+test('chapter 4: a kept student leak is walked with the leak cause', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=graph&handLeak=20');
+  await page.waitForFunction(() => window.__chapterDone === 'graph', null, { timeout: 300_000 });
+  const s = await page.evaluate(() => window.__ctx.game.s);
+  expect(s.trials[20][1].valid).toBe(false);
+  expect(s.trials[20][1].reason).toBe('leak');
+  expect(s.trials[30][2].valid).toBe(false);
+  expect(s.flags.decisionWrong).toBeFalsy();
   expect(errors).toEqual([]);
 });
 
@@ -238,13 +268,14 @@ test('full auto run: boot to the end screen', async ({ page }) => {
 });
 
 test('resume: a saved checkpoint continues from that chapter', async ({ page }) => {
+  test.setTimeout(480_000);
   await page.goto('/?test');
-  await page.evaluate(() => localStorage.setItem('oxylab.v1', JSON.stringify({ seed: 3, chapter: 'robot', o2: 315, score: 0, hypothesis: 'peak', plan: [], trials: { 20: [{ volume: 11, by: 'student', valid: true }], 40: [{ volume: 40, by: 'student', valid: true }], 60: [{ volume: 3.5, by: 'student', valid: true }] }, badges: [], mistakes: [], flags: { goggles: true }, over: false })));
+  await page.evaluate(() => localStorage.setItem('oxylab.v1', JSON.stringify({ seed: 3, chapter: 'robot', o2: 315, score: 0, hypothesis: 'peak', plan: [], trials: { 20: [11, 11.5, 10.5].map(volume => ({ volume, by: 'student', valid: true })), 40: [40, 41, 39.5].map(volume => ({ volume, by: 'student', valid: true })) }, badges: [], mistakes: [], flags: { goggles: true }, over: false })));
   const errors = await boot(page, '&auto');
   await expect(page.locator('#resumeNote')).toBeHidden();
   await page.waitForFunction(() => window.__ctx.game.s.chapter === 'robot', null, { timeout: 60_000 });
   await page.waitForFunction(() => window.__ctx.lockedTemps, null, { timeout: 60_000 });
-  expect(await page.evaluate(() => window.__ctx.lockedTemps)).toEqual([20, 40, 60]);
+  expect(await page.evaluate(() => window.__ctx.lockedTemps)).toEqual([20, 40]);
   expect(errors).toEqual([]);
 });
 

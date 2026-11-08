@@ -137,17 +137,19 @@ function seedFor(id) {
   if (order > CHAPTERS.indexOf('intro')) { game.s.flags.introDone = true; ctx.mood.set({ light: 0.85, gen: 0.15 }); }
   if (order > CHAPTERS.indexOf('bench')) {
     game.s.hypothesis ??= 'peak'; game.s.flags.goggles = true;
-    const unmixedAt = Number(params.get('handUnmixed')) || null;      // ?handUnmixed=40: the student forgot to stir there
-    for (const [T, v] of [[20, 11], [40, 40.5], [60, 3.5]]) {
-      const um = T === unmixedAt;
-      game.addTrial(T, { volume: um ? Math.round(v * 0.6 * 2) / 2 : v, by: 'student', read: 'student', mixed: !um, ...(um ? { meta: 'unmixed' } : {}) });
-    }
+    // two hand temperatures × three repeats; ?handUnmixed=T / ?handLeak=T make the 2nd repeat there a kept deviating reading
+    const unmixedAt = Number(params.get('handUnmixed')) || null, leakAt = Number(params.get('handLeak')) || null;
+    for (const [T, vs] of [[20, [11, 11.5, 10.5]], [40, [40.5, 41.5, 39.5]]]) vs.forEach((v, i) => {
+      const um = T === unmixedAt && i === 1, lk = T === leakAt && i === 1;
+      game.addTrial(T, { volume: um ? Math.round(v * 0.6 * 2) / 2 : lk ? Math.round(v * 0.55 * 2) / 2 : v, by: 'student', read: 'student', mixed: !um,
+        ...(um ? { meta: 'unmixed' } : lk ? { meta: 'leak' } : {}) });
+    });
   }
   if (order > CHAPTERS.indexOf('robot')) {
-    // robot completions at the hand temperatures + three new temperatures; one unmixed robot reading at 40
-    const data = { 10: [5.5, 5, 6], 20: [10.5, 11.5], 30: [22, 21.5, 22.5], 40: [41, 25], 50: [31, 30, 32.5], 60: [4, 4.5] };
-    game.s.plan = [10, 20, 30, 40, 50, 60];
-    for (const [T, vs] of Object.entries(data)) vs.forEach((v, i) => game.addTrial(Number(T), { volume: v, by: 'robot', read: 'auto', ...(T === '40' && i === 1 ? { meta: 'unmixed', mixed: false } : {}) }));
+    // robot temperatures 10/30/50; one unmixed robot reading at 30
+    const data = { 10: [5.5, 5, 6], 30: [22, 21.5, 13], 50: [31, 30, 32.5] };
+    game.s.plan = [10, 20, 30, 40, 50];
+    for (const [T, vs] of Object.entries(data)) vs.forEach((v, i) => game.addTrial(Number(T), { volume: v, by: 'robot', read: 'auto', ...(T === '30' && i === 2 ? { meta: 'unmixed', mixed: false } : {}) }));
   }
 }
 
