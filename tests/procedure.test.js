@@ -131,3 +131,32 @@ test('review F8: the student\'s unstirred trial is tagged as an unmixed outlier 
   p.act({ type: 'stopper', kind: 'tube' }); p.act({ type: 'timer' }); p.act({ type: 'read', ml: p.volume });
   assert.equal(game.s.trials[37][0].meta, 'unmixed');
 });
+
+test('records the trial at the chosen temperature', () => {
+  const game = createGame({ seed: 1 });
+  const p = createProcedure({ game, rng: makeRng(5), trialIndex: 0, goggles: true, requiredTemp: 50 });
+  for (const a of [{ type: 'dial', temp: 50 }, { type: 'fillCylinder' }, { type: 'pour', bottle: '3' }, { type: 'yeast' }, { type: 'stir' }, { type: 'stopper', kind: 'tube' }, { type: 'timer' }]) p.act(a);
+  p.act({ type: 'read', ml: p.volume });
+  assert.equal(game.s.trials[50].length, 1);
+  assert.equal(game.s.trials[50][0].valid, true);
+});
+
+test('bathReady skips the dial step', () => {
+  const game = createGame({ seed: 1 });
+  const p = createProcedure({ game, rng: makeRng(5), trialIndex: 1, goggles: true, requiredTemp: 50, bathReady: true });
+  assert.equal(p.step, 'fillCylinder');
+  for (const a of [{ type: 'fillCylinder' }, { type: 'pour', bottle: '3' }, { type: 'yeast' }, { type: 'stir' }, { type: 'stopper', kind: 'tube' }, { type: 'timer' }]) p.act(a);
+  p.act({ type: 'read', ml: p.volume });
+  assert.equal(game.s.trials[50].length, 1);
+});
+
+test('dialing a different temperature is refused with a reason', () => {
+  const game = createGame({ seed: 1 });
+  const p = createProcedure({ game, rng: makeRng(5), trialIndex: 0, goggles: true, requiredTemp: 50 });
+  assert.deepEqual(p.act({ type: 'dial', temp: 30 }), { ok: false, msg: 'otherTemp' });
+  assert.equal(p.step, 'dial');
+});
+
+test('requiredTemp is mandatory', () => {
+  assert.throws(() => createProcedure({ game: createGame({ seed: 1 }), rng: makeRng(5) }));
+});

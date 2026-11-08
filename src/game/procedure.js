@@ -8,11 +8,12 @@ const NEXT_TARGET = {
 const LEVELS = ['full', 'highlight', 'none'];
 const NO = { ok: false };
 
-export function createProcedure({ game, rng, trialIndex = 0, goggles = false, requiredTemp = 37 }) {
-  let temp = null, filled = false, spoons = 0, stirred = false;
+export function createProcedure({ game, rng, trialIndex = 0, goggles = false, requiredTemp, bathReady = false }) {
+  if (requiredTemp == null) throw new Error('createProcedure: requiredTemp is required');
+  let temp = bathReady ? requiredTemp : null, filled = false, spoons = 0, stirred = false;
 
   const p = {
-    step: 'dial',
+    step: bathReady ? 'fillCylinder' : 'dial',
     goggles,
     volume: null,
     trialIndex,
@@ -30,7 +31,7 @@ export function createProcedure({ game, rng, trialIndex = 0, goggles = false, re
         case 'dial':
           if (p.step !== 'dial') return NO;
           if (a.temp >= 90) { game.penalize('boiling'); return { ok: false, fail: 'boil' }; }
-          if (a.temp !== requiredTemp) return NO;
+          if (a.temp !== requiredTemp) return { ok: false, msg: 'otherTemp' };
           temp = a.temp; p.step = 'fillCylinder'; return { ok: true };
 
         case 'fillCylinder':
