@@ -8,3 +8,4 @@ test-results/
 playwright-report/
 intro/clips/
 __pycache__/
+intro/ref/

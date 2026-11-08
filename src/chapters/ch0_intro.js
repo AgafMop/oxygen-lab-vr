@@ -1,5 +1,7 @@
-// Opening (in-engine): outside on Mars as the dust storm rolls in, then inside: alarms, dead generator, the crew.
+// Opening: the AI-generated film on a big screen (when it can play), otherwise the in-engine version —
+// outside on Mars as the dust storm rolls in, then inside: alarms, dead generator, the crew.
 import * as THREE from 'three';
+import { playIntroCinema } from '../fx/introCinema.js';
 import { createStorm } from '../fx/storm.js';
 import { createFigure } from '../lab/crew.js';
 import { createScope, Abort } from './kit.js';
@@ -36,6 +38,23 @@ export async function run(ctx, scope) {
     scope.add(skipBtn);
     const skipEl = document.getElementById('skip');
     if (skipEl) { skipEl.hidden = false; skipEl.onclick = () => seq.abort(); scope.add(() => { skipEl.hidden = true; }); }
+  }
+
+  const finish = async () => {
+    ctx.mood.set({ light: 0.85, alarm: 0, gen: 0.15, flicker: 0 });
+    game.s.flags.introDone = true;
+    storage?.set('oxylab.introSeen', true);
+    ctx.introPhase = 'done';
+    await engine.fade(0, 300);
+  };
+
+  // ---- the film ----
+  const video = ctx.introVideoSrc;
+  if (video && !ctx.params.has('novideo') && (!ctx.auto || ctx.params.has('video'))) {
+    let r;
+    try { r = await playIntroCinema(ctx, seq, video, { onShow: () => { if (skipBtn) ui.inFront(skipBtn.mesh, 1.2, 0.45); } }); }
+    catch (e) { if (!(e instanceof Abort) || scope.aborted) throw e; r = 'skipped'; }
+    if (r !== 'unavailable') return finish();
   }
 
   // ---- outside ----
@@ -127,10 +146,6 @@ export async function run(ctx, scope) {
     storm.dispose();
   }
   restore();
-  ctx.mood.set({ light: 0.85, alarm: 0, gen: 0.15, flicker: 0 });
   azoulay.hide(); commander.hide();
-  game.s.flags.introDone = true;
-  storage?.set('oxylab.introSeen', true);
-  ctx.introPhase = 'done';
-  await engine.fade(0, 300);
+  await finish();
 }

@@ -23,6 +23,7 @@ import * as chEnd from './chapters/ch_end.js';
 import * as ch5 from './chapters/ch5_rescue.js';
 import * as ch6 from './chapters/ch6_life.js';
 import { SAVE_KEY } from './game/config.js';
+import { createIntroVideo, primeIntroVideo } from './fx/introCinema.js';
 
 const CH = { intro: ch0, hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4, rescue: ch5, life: ch6, end: chEnd };
 const CH_NAMES = { intro: 'פתיחה', rescue: 'הצלת הבסיס', life: 'מסדרון החיים', hypothesis: 'תדריך והשערה', bench: 'הניסוי בידיים', robot: 'רובי מריץ ניסויים', graph: 'הגרף והאנזים', end: 'סיכום' };
@@ -52,6 +53,8 @@ function resetAmbience() {
 }
 
 async function boot() {
+  const needIntro = (!saved?.chapter || saved.chapter === 'intro') && (!params.get('only') || params.get('only') === 'intro');
+  if (needIntro && !params.has('novideo') && (!AUTO || params.has('video'))) ctx.introVideoSrc = createIntroVideo();   // preload while the lab loads
   ctx.lab = await loadLab(engine);
   ctx.loco = createLocomotion(engine, input);
   // robot station: step back and aim between the robot bench and the graph wall so both fit in view
@@ -77,6 +80,7 @@ async function boot() {
 async function start(vr) {
   $('boot').hidden = true;
   audio.unlock();
+  if (!ctx.started) primeIntroVideo(ctx.introVideoSrc);   // inside the click: lets the film play with sound later
   if (vr) {
     try {
       const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] });

@@ -200,6 +200,32 @@ test('resume: a saved checkpoint continues from that chapter', async ({ page }) 
   expect(errors).toEqual([]);
 });
 
+test('intro video: plays on a screen with subtitles, then hands over to the lab state', async ({ page }) => {
+  const errors = await boot(page, '&only=intro&video');
+  await page.waitForFunction(() => window.__ctx.introPhase === 'video', null, { timeout: 60_000 });
+  await page.waitForFunction(() => window.__ctx.introVideo?.currentTime > 2.5, null, { timeout: 30_000 });
+  await page.screenshot({ path: `${SHOTS}/intro-video.png` });
+  const mid = await page.evaluate(() => ({ lab: window.__ctx.lab.root.visible, sub: document.getElementById('sub').textContent }));
+  expect(mid.lab).toBe(false);                 // the lab is hidden while the film plays
+  expect(mid.sub).toContain('בסיס תמר');        // intro_1 is subtitled
+  await page.evaluate(() => { window.__ctx.introVideo.currentTime = 46.5; });
+  await page.waitForFunction(() => window.__chapterDone === 'intro', null, { timeout: 30_000 });
+  const s = await page.evaluate(() => ({ done: window.__ctx.game.s.flags.introDone, lab: window.__ctx.lab.root.visible, gen: window.__ctx.mood.state.gen }));
+  expect(s).toEqual({ done: true, lab: true, gen: 0.15 });
+  expect(errors).toEqual([]);
+});
+
+test('intro video: a returning student can skip the film', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('oxylab.introSeen', 'true'); } catch {} });
+  const errors = await boot(page, '&only=intro&video');
+  await page.waitForFunction(() => window.__ctx.introVideo?.currentTime > 1, null, { timeout: 60_000 });
+  await page.click('#skip');
+  await page.waitForFunction(() => window.__chapterDone === 'intro', null, { timeout: 20_000 });
+  const s = await page.evaluate(() => ({ paused: window.__ctx.introVideo.paused, lab: window.__ctx.lab.root.visible, done: window.__ctx.game.s.flags.introDone }));
+  expect(s).toEqual({ paused: true, lab: true, done: true });
+  expect(errors).toEqual([]);
+});
+
 test('intro: outside, storm hits, inside with alarms; then chapter 1 starts', async ({ page }) => {
   const errors = await boot(page, '&auto&only=intro&hold');
   for (const ph of ['outside', 'storm', 'hit', 'inside']) {
