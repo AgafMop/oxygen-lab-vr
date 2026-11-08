@@ -36,7 +36,7 @@ export function createMood(ctx) {
 
   const tween = (key, to, ms) => new Promise(res => {
     const from = state[key]; let k = 0;
-    const off = engine.onFrame(dt => { k = Math.min(1, k + (dt * 1000) / Math.max(1, ms / (ctx.auto ? 8 : 1))); state[key] = from + (to - from) * k; if (k >= 1) { off(); res(); } });
+    const off = engine.onFrame(dt => { k = Math.min(1, k + (dt * 1000) / Math.max(1, ms / (ctx.animSpeed ?? (ctx.auto ? 8 : 1)))); state[key] = from + (to - from) * k; if (k >= 1) { off(); res(); } });
   });
   return { state, to: tween, set(o) { Object.assign(state, o); } };
 }

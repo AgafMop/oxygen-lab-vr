@@ -17,9 +17,18 @@ export async function decide(ctx, scope, [yesLabel, noLabel], { station = 'robot
   return v;
 }
 
+/** Where Azoulay stands to work the generator console: in front of the dial (toward the room), facing it. */
+export function consoleSpot(ctx) {
+  const dial = ctx.lab.props.P_generatorDial.getWorldPosition(new THREE.Vector3());
+  const st = ctx.loco.stations.generator.pos;
+  const toRoom = new THREE.Vector3(st.x - dial.x, 0, st.z - dial.z).normalize();
+  const side = new THREE.Vector3(-toRoom.z, 0, toRoom.x);
+  return { pos: new THREE.Vector3(dial.x, 0, dial.z).addScaledVector(toRoom, 0.48).addScaledVector(side, 0.12), look: new THREE.Vector3(dial.x, 0, dial.z) };
+}
+
 export async function azoulayScene(ctx, scope) {
   const { loco, mood, lab, audio, engine } = ctx;
-  const tween = makeTween(engine, ctx.auto ? 8 : 1);
+  const tween = makeTween(engine, ctx.animSpeed ?? (ctx.auto ? 8 : 1));
   await loco.goTo('generator');
   const st = loco.stations.generator.pos;
   const az = scope.add(createFigure(ctx));
@@ -27,7 +36,8 @@ export async function azoulayScene(ctx, scope) {
   az.show(new THREE.Vector3(st.x - 1.5, 0, st.z + 1.6), st);
   ctx.storyPhase = 'azoulay';
   await scope.say('azoulay_1');
-  await az.walkTo(new THREE.Vector3(st.x - 1.3, 0, st.z - 0.45), { lookAt: new THREE.Vector3(st.x - 1.8, 0, st.z) });
+  const spot = consoleSpot(ctx);
+  await az.walkTo(spot.pos, { lookAt: spot.look });
   const dial = lab.props.P_generatorDial;
   await Promise.all([az.gesture('dial'), tween(900, k => { dial.rotation.z = -k * Math.PI * 1.5; })]);
   audio.say('azoulay_2');
@@ -36,7 +46,7 @@ export async function azoulayScene(ctx, scope) {
   cmd.show(new THREE.Vector3(st.x - 1.5, 0, st.z + 1.0), st);
   if (ctx.params.has('hold')) await scope.guard(new Promise(r => setTimeout(r, 4000)));
   await scope.say('azoulay_3');
-  az.faceTo(st); await az.gesture('shrug');
+  await az.turnTo(st); await az.gesture('shrug');
   await scope.say('azoulay_4');
   await scope.say('azoulay_5');
   await Promise.all([tween(700, k => { dial.rotation.z = -Math.PI * 1.5 * (1 - k); }), mood.to('gen', 0.15, 1500), mood.to('alarm', 0, 1500)]);
@@ -73,7 +83,7 @@ export async function stormHits(ctx, scope) {
   ctx.storyPhase = 'storm';
   audio.sfx('rumble'); audio.sfx('wind', 0.7);
   scope.add(() => { audio.sfx('wind', 0); engine.scene.backgroundIntensity = 1; });
-  const sky = (to, ms) => new Promise(res => { const from = engine.scene.backgroundIntensity; let k = 0; const o = engine.onFrame(dt => { k = Math.min(1, k + dt * 1000 / Math.max(1, ms / (ctx.auto ? 8 : 1))); engine.scene.backgroundIntensity = from + (to - from) * k; if (k >= 1) { o(); res(); } }); });
+  const sky = (to, ms) => new Promise(res => { const from = engine.scene.backgroundIntensity; let k = 0; const o = engine.onFrame(dt => { k = Math.min(1, k + dt * 1000 / Math.max(1, ms / (ctx.animSpeed ?? (ctx.auto ? 8 : 1)))); engine.scene.backgroundIntensity = from + (to - from) * k; if (k >= 1) { o(); res(); } }); });
   await Promise.all([storm.fadeIn(800), storm.approach(3500, 10), sky(0.3, 3000)]);
   mood.set({ flicker: 0.6 }); audio.sfx('alarm');
   await Promise.all([mood.to('light', 0.4, 900), mood.to('alarm', 1, 900)]);

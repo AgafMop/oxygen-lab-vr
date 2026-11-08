@@ -13,15 +13,19 @@ const tmat = (color, opacity, opts = {}) => mat(color, { transparent: true, opac
 export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
   const { engine, lab, ui, audio } = ctx;
   const { scene, camera } = engine;
-  const tween = makeTween(engine, (ctx.auto ? 8 : 1) * speed);
+  let tweenSpeed = speed;
+  const tweenAt = makeTween(engine, 1);
+  const tween = (ms, fn, e) => tweenAt(ms / ((ctx.animSpeed ?? (ctx.auto ? 8 : 1)) * tweenSpeed), fn, e);
   const P = lab.props;
   const wp = o => o.getWorldPosition(new THREE.Vector3());
 
   // ---------- which props: the real bench set, or a clone set on the robot bench ----------
   let flask, cyl, bath, trough, timer, thermo;
+  let T;                                  // hand tools this set uses (real bench props, or clones on the robot bench)
   const group = new THREE.Group(); scene.add(group);
   if (at === 'bench') {
     ({ P_flask: flask, P_cylinder: cyl, P_bath: bath, P_trough: trough, P_timer: timer, P_thermometer: thermo } = P);
+    T = { bottle3: P.P_bottle3, bottle30: P.P_bottle30, spoon: P.P_spoon, jar: P.P_yeastJar, rod: P.P_rod, stopperTube: P.P_stopperTube, stopperSealed: P.P_stopperSealed };
   } else {
     const base = wp(lab.anchors.A_robotBench);
     const put = (o, dx, dz) => { const c = o.clone(true); c.position.set(base.x + dx, base.y, base.z + dz); group.add(c); return c; };
@@ -30,6 +34,12 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
     put(P.P_stand, -0.05, 0.52);
     for (const o of [bath, flask, trough, cyl]) o.rotation.y = Math.PI / 2;
     timer = null; thermo = put(P.P_thermometer, 0.05, -0.28);
+    // Robi's own tools, lined up behind the flask so it visibly does every step
+    T = { bottle3: put(P.P_bottle3, -0.2, -0.55), spoon: put(P.P_spoon, -0.05, -0.6), jar: put(P.P_yeastJar, 0.1, -0.58),
+      rod: put(P.P_rod, 0.18, -0.5), stopperTube: put(P.P_stopperTube, 0.12, -0.4) };
+    T.bottle30 = T.bottle3; T.stopperSealed = T.stopperTube;
+    for (const o of Object.values(T)) ctx.track?.(o, 'robotTool');
+    for (const o of [bath, flask, trough, cyl]) ctx.track?.(o, 'robotSet');
   }
 
   // ---------- liquids ----------
@@ -183,7 +193,17 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
     const from = o.position.clone();
     await tween(ms, k => { o.position.lerpVectors(from, toWorld, k); o.position.y += Math.sin(k * Math.PI) * lift; });
   }
-  function goHome(o) { const h = home.get(o); if (!h) return; h.parent.attach(o); o.position.copy(h.pos); o.rotation.copy(h.rot); }
+  /** Back to its place: an arc home (instant only when asked, e.g. a reset hidden behind a fade). */
+  function goHome(o, ms = 450) {
+    const h = home.get(o); if (!h) return Promise.resolve();
+    const toWorld = h.parent.localToWorld(h.pos.clone());
+    scene.attach(o);
+    const from = o.position.clone(), q0 = o.quaternion.clone();
+    const q1 = new THREE.Quaternion().setFromEuler(h.rot).premultiply(h.parent.getWorldQuaternion(new THREE.Quaternion()));
+    const done = () => { h.parent.attach(o); o.position.copy(h.pos); o.rotation.copy(h.rot); };
+    if (!ms) { done(); return Promise.resolve(); }
+    return tween(ms, k => { o.position.lerpVectors(from, toWorld, k); o.position.y += Math.sin(k * Math.PI) * 0.06; o.quaternion.slerpQuaternions(q0, q1, k); }).then(done);
+  }
 
   const flaskMouth = () => wp(flask).add(new THREE.Vector3(0, 0.146, 0));
 
@@ -201,35 +221,35 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
       await tween(900, k => setGas(lerp(from, 0, k)));
     },
     async pour(bottle) {
-      const b = bottle === '30' ? P.P_bottle30 : P.P_bottle3;
+      const b = bottle === '30' ? T.bottle30 : T.bottle3;
       const m = flaskMouth().add(new THREE.Vector3(0.07, 0.09, 0));
       await arc(b, m, 600);
       audio.sfx('pour');
       flaskLiq.visible = true; flaskLiq.material.color.set(0xbfe3ff);
       await tween(1100, k => { b.rotation.z = lerp(0, 1.9, Math.min(1, k * 2)); const h = 0.022 * k; flaskLiq.scale.y = Math.max(0.0005, h); flaskLiq.position.y = h / 2 + 0.002; });
       await tween(400, k => { b.rotation.z = lerp(1.9, 0, k); });
-      goHome(b);
+      await goHome(b);
     },
     async addYeast() {
-      const sp = P.P_spoon, jar = wp(P.P_yeastJar);
+      const sp = T.spoon, jar = wp(T.jar);
       await arc(sp, jar.clone().add(new THREE.Vector3(0, 0.1, 0)), 450, 0.05);
       await arc(sp, flaskMouth().add(new THREE.Vector3(0, 0.03, 0)), 600);
       await tween(300, k => { sp.rotation.x = -1.4 * k; });
       yeastLayer.visible = true; yeastLayer.scale.y = Math.min(3, yeastLayer.scale.y + (yeastLayer.userData.n ? 1 : 0)); yeastLayer.userData.n = (yeastLayer.userData.n || 0) + 1;
       audio.sfx('click');
-      goHome(sp);
+      await goHome(sp);
     },
     async stir() {
-      const r = P.P_rod;
+      const r = T.rod;
       await arc(r, flaskMouth().add(new THREE.Vector3(0, 0.02, 0)), 500);
       r.rotation.set(0, 0, Math.PI / 2 - 0.15);
       const c = r.position.clone();
       await tween(1400, k => { const a = k * Math.PI * 6; r.position.set(c.x + Math.cos(a) * 0.012, c.y - 0.06, c.z + Math.sin(a) * 0.012); }, ease.linear);
       yeastLayer.visible = false; flaskLiq.material.color.set(0xd9c39a); flaskLiq.material.opacity = 0.8;
-      goHome(r);
+      await goHome(r);
     },
     async setStopper(kind) {
-      const s = kind === 'sealed' ? P.P_stopperSealed : P.P_stopperTube;
+      const s = kind === 'sealed' ? T.stopperSealed : T.stopperTube;
       await arc(s, flaskMouth().add(new THREE.Vector3(0, -0.012, 0)), 600);
       audio.sfx('pop');
       if (kind === 'tube') { buildTube(); tubeMesh.visible = true; }
@@ -245,14 +265,45 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
       bubRate = 0; audio.sfx('bubbles', false);
     },
     gasMl: () => gasMl,
+    // ---- physical handling hooks (src/lab/handling.js) ----
+    flaskMouth,
+    get jar() { return T.jar; },
+    remember,
+    /** Pour `dk` of the 20 ml mark into the flask; returns true once the mark is reached (it stops there). */
+    fillFlask(dk) {
+      const lvl = Math.min(1, (flaskLiq.userData.lvl || 0) + dk);
+      flaskLiq.userData.lvl = lvl; flaskLiq.visible = true; flaskLiq.material.color.set(0xbfe3ff);
+      const h = 0.022 * lvl; flaskLiq.scale.y = Math.max(0.0005, h); flaskLiq.position.y = h / 2 + 0.002;
+      if (lvl >= 1 && !flaskLiq.userData.full) { flaskLiq.userData.full = true; audio.sfx('ok'); }
+      return lvl >= 1;
+    },
+    flaskLevel: () => flaskLiq.userData.lvl || 0,
+    dropYeast() {
+      yeastLayer.visible = true; yeastLayer.scale.y = Math.min(3, yeastLayer.scale.y + (yeastLayer.userData.n ? 1 : 0)); yeastLayer.userData.n = (yeastLayer.userData.n || 0) + 1;
+      audio.sfx('click');
+    },
+    /** Stir progress 0..1: the yeast clump spreads and the liquid turns cloudy. */
+    stirTint(p) {
+      if (!flaskLiq.visible || !yeastLayer.visible && p < 1) return;
+      flaskLiq.material.color.setRGB(0.75 + 0.1 * p, 0.89 - 0.13 * p, 1 - 0.4 * p); flaskLiq.material.opacity = 0.55 + 0.25 * p;
+      yeastLayer.scale.x = yeastLayer.scale.z = 1 - 0.6 * p;
+      if (p >= 1) { yeastLayer.visible = false; flaskLiq.material.color.set(0xd9c39a); flaskLiq.material.opacity = 0.8; }
+    },
+    /** Robi's run: the robot-bench set really does every step (fast after the first one). */
+    async robotRun({ fast = false } = {}) {
+      const prev = tweenSpeed; tweenSpeed = fast ? 6 : 2;
+      try { await app.pour('3'); await app.addYeast(); await app.stir(); await app.setStopper('tube'); } finally { tweenSpeed = prev; }
+    },
+    setSpeed(v) { tweenSpeed = v; },
+    goHome,
     /** Robot shortcut: charged flask (peroxide + stirred yeast) with the tube connected. */
     robotPrep() {
       flaskLiq.visible = true; flaskLiq.material.color.set(0xd9c39a); flaskLiq.material.opacity = 0.8;
       flaskLiq.scale.y = 0.022; flaskLiq.position.y = 0.013; buildTube(); tubeMesh.visible = true;
     },
     emptyFlask() {
-      flaskLiq.visible = false; flaskLiq.material.color.set(0xbfe3ff); flaskLiq.material.opacity = 0.55;
-      yeastLayer.visible = false; yeastLayer.userData.n = 0; yeastLayer.scale.y = 1; foamTop.visible = false;
+      flaskLiq.visible = false; flaskLiq.material.color.set(0xbfe3ff); flaskLiq.material.opacity = 0.55; flaskLiq.userData = {};
+      yeastLayer.scale.set(1, 1, 1); yeastLayer.visible = false; yeastLayer.userData.n = 0; yeastLayer.scale.y = 1; foamTop.visible = false;
       tubeMesh.visible = false; if (app.stopper) goHome(app.stopper); app.stopper = null;
     },
     /** Pulse a prop's emissive to hint at it (null clears). */
@@ -266,7 +317,7 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
     },
     setGas,
     reset() {
-      app.hint(null); setGas(50); flaskLiq.visible = false; yeastLayer.visible = false; yeastLayer.userData.n = 0; yeastLayer.scale.y = 1; foamTop.visible = false;
+      app.hint(null); setGas(50); flaskLiq.visible = false; flaskLiq.userData = {}; yeastLayer.scale.set(1, 1, 1); yeastLayer.visible = false; yeastLayer.userData.n = 0; yeastLayer.scale.y = 1; foamTop.visible = false;
       tubeMesh.visible = false; if (app.stopper) goHome(app.stopper); app.stopper = null; tDisp?.redraw(60); bubRate = 0;
     },
     async goggles() {

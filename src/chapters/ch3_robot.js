@@ -84,6 +84,7 @@ export async function run(ctx, scope) {
   // ---- robot runs ----
   await scope.say('c3_run');
   const validAt = T => (game.s.trials[T] || []).filter(t => t.valid).length;
+  let robotRuns = 0;
   // first: two more repeats at each of the student's temperatures (no oxygen cost). A student's "forgot to stir"
   // reading is made the visible outlier whenever possible — then the robot plants none of its own.
   for (const T of hand) {
@@ -92,7 +93,7 @@ export async function run(ctx, scope) {
     const { vals } = completeValues(T, rng, own.volume, own.meta === 'unmixed');
     await scope.guard(rapp.setBath(T, 900));
     for (const v of vals.slice(0, 3 - validAt(T))) {
-      rapp.reset(); rapp.setGas(0); rapp.robotPrep();
+      rapp.reset(); rapp.setGas(0); robi.gesture('point'); await scope.guard(rapp.robotRun({ fast: robotRuns++ > 0 }));
       await scope.guard(rapp.runTrial(v, 1.6));
       game.addTrial(T, { volume: v, by: 'robot', read: 'auto', fill: true }, { free: true });
       audio.sfx('click');
@@ -121,7 +122,7 @@ export async function run(ctx, scope) {
       const v = vals[i], isOut = outIdx === i;
       const leakHere = !leakDone && T === leakT && i === (outIdx === 1 ? 0 : 1);
       const stormHere = !stormDone && !leakHere && T === stormT && T !== leakT && i === (outIdx === 0 ? 1 : 0);
-      rapp.reset(); rapp.setGas(0); rapp.robotPrep();
+      rapp.reset(); rapp.setGas(0); robi.gesture('point'); await scope.guard(rapp.robotRun({ fast: robotRuns++ > 0 }));
       robi.gesture('point');
       if (leakHere) {
         leakDone = true;

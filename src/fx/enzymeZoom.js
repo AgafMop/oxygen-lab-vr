@@ -18,7 +18,7 @@ function unfoldedCurve(t) {          // a long, loose chain
 export async function playEnzymeZoom(ctx, scope) {
   const { engine, ui, audio, input } = ctx;
   const { scene } = engine;
-  const tween = makeTween(engine, ctx.auto ? 8 : 1);
+  const tween = makeTween(engine, ctx.animSpeed ?? (ctx.auto ? 8 : 1));
   const root = new THREE.Group();
 
   await scope.say('c4_zoom');

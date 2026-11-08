@@ -100,18 +100,30 @@ export function createInput(engine) {
   }
   function grab(p, obj, holder = p.ctrl) {
     const h = handlers.get(obj);
-    if (!h?.grabbable) return;
-    p.grabbed = { obj, parent: obj.parent };
-    holder.attach(obj);
-    h.onGrab?.(obj);
+    if (!h?.grabbable || h.enabled === false) return;
+    if ([...pointers, mouse].some(q => q.grabbed?.obj === obj)) return;      // already in the other hand
+    if (h.onGrab) {                                    // the owner attaches (lab handling)
+      if (h.onGrab(obj, holder) === false) return;
+      p.grabbed = { obj, managed: true };
+    } else { p.grabbed = { obj, parent: obj.parent }; holder.attach(obj); }
+    if (p !== mouse) pulse(p, 0.45, 40);
   }
   function release(p) {
     if (!p.grabbed) return;
-    const { obj, parent } = p.grabbed;
-    parent.attach(obj);
+    const { obj, parent, managed } = p.grabbed;
     p.grabbed = null;
+    if (!managed) parent.attach(obj);
     handlers.get(obj)?.onRelease?.(obj);
   }
+  // desktop press-and-drag of grabbable props (a drag that starts elsewhere still looks around)
+  let drag = null;
+  canvas.addEventListener('pointerdown', e => {
+    if (!enabled || engine.isXR() || !drag || mouse.locked || e.button !== 0) return;
+    const obj = mouse.hover; if (!obj || !handlers.get(obj)?.grabbable) return;
+    drag.begin(); ray.setFromCamera(mouse.ndc, camera); drag.move(ray.ray);
+    grab(mouse, obj, drag.holder);
+  });
+  addEventListener('pointerup', () => { if (mouse.grabbed?.managed) release(mouse); });
 
   // ---- per-frame hover ----
   engine.onFrame(() => {
@@ -131,6 +143,7 @@ export function createInput(engine) {
       }
     } else {
       ray.setFromCamera(mouse.ndc, camera);
+      if (mouse.grabbed && drag) drag.move(ray.ray);
       const hit = enabled ? pick() : null;
       const obj = hit?.obj ?? null;
       if (obj !== mouse.hover) { if (mouse.hover) setHover(mouse.hover, false); if (obj) setHover(obj, true); mouse.hover = obj; }
@@ -154,6 +167,8 @@ export function createInput(engine) {
     },
     setEnabled(v) { enabled = v; },
     setTargetEnabled(obj, v) { const h = handlers.get(obj); if (h) h.enabled = v; },
+    /** Desktop drag holder for grabbable props: { holder, begin(), move(ray) } or null. */
+    setDragHolder(d) { drag = d; },
     /** Programmatic select (auto-play tests). */
     select,
     hovered: () => mouse.hover ?? pointers.find(p => p.hover)?.hover ?? null,

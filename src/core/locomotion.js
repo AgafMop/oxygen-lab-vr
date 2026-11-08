@@ -96,7 +96,7 @@ export function createLocomotion(engine, input) {
     if (engine.isXR()) return;
     let dx = 0, dy = 0;
     if (input.mouse.locked) { dx = ev.movementX; dy = ev.movementY; }
-    else if (drag && ev.buttons) { dx = ev.clientX - drag.x; dy = ev.clientY - drag.y; drag.x = ev.clientX; drag.y = ev.clientY; }
+    else if (drag && ev.buttons && !input.mouse.grabbed) { dx = ev.clientX - drag.x; dy = ev.clientY - drag.y; drag.x = ev.clientX; drag.y = ev.clientY; }   // dragging a prop never turns the view
     yaw -= dx * 0.0035; pitch = Math.max(-1.2, Math.min(1.1, pitch - dy * 0.0035));
   });
 

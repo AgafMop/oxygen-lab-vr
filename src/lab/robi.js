@@ -6,7 +6,7 @@ export function createRobi(ctx) {
   const { engine, lab } = ctx;
   const R = lab.robi;
   const root = R.R_root, head = R.R_head, armL = R.R_armL, armR = R.R_armR, thr = R.R_thruster;
-  const tween = makeTween(engine, ctx.auto ? 8 : 1);
+  const tween = makeTween(engine, ctx.animSpeed ?? (ctx.auto ? 8 : 1));
 
   // face screen (canvas) laid over R_face
   const c = document.createElement('canvas'); c.width = 512; c.height = 256;
@@ -55,42 +55,55 @@ export function createRobi(ctx) {
     }
   });
 
+  const wrap = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+  function turnTo(yaw, ms) {
+    const y0 = root.rotation.y, d = wrap(yaw - y0);
+    if (Math.abs(d) < 0.02) return Promise.resolve();
+    root.rotation.x = 0; root.rotation.z = 0;
+    return tween(ms * Math.min(1, Math.abs(d) / 1.2 + 0.3), k => { root.rotation.y = y0 + d * k; }, ease.inOut);
+  }
+  ctx.track?.(root, 'robi');
   const robi = {
     root,
     face(e) { expr = e; draw(); },
+    /** Glide to a floor point: turn the short way, ease in and out with a slight lean, end facing the student. */
     async moveTo(target, { speed = 0.7 } = {}) {
       const to = target.isVector3 ? target.clone() : target.getWorldPosition(new THREE.Vector3());
-      to.y = 0;
-      const from = root.position.clone(); from.y = 0;
-      const dist = from.distanceTo(to);
-      if (dist < 0.01) return;
-      const look = to.clone(); root.lookAt(look.x, root.position.y, look.z);
-      await tween((dist / speed) * 1000, k => { root.position.x = from.x + (to.x - from.x) * k; root.position.z = from.z + (to.z - from.z) * k; });
+      const from = root.position.clone();
+      const dx = to.x - from.x, dz = to.z - from.z, dist = Math.hypot(dx, dz);
+      if (dist > 0.01) {
+        await turnTo(Math.atan2(dx, dz), 350);
+        await tween(Math.max(600, (dist / speed) * 1000), k => {
+          root.position.x = from.x + dx * k; root.position.z = from.z + dz * k;
+          root.rotation.x = 0.14 * Math.sin(k * Math.PI);          // lean into the move
+        }, ease.inOut);
+        root.rotation.x = 0;
+      }
       const head = engine.headPosition(new THREE.Vector3());
-      const yaw0 = root.rotation.y;
-      const tmp = root.clone(false); tmp.position.copy(root.position); tmp.lookAt(head.x, root.position.y, head.z);
-      const yaw1 = tmp.rotation.y;
-      await tween(400, k => { root.rotation.y = yaw0 + (yaw1 - yaw0) * k; });
+      await turnTo(Math.atan2(head.x - root.position.x, head.z - root.position.z), 400);
     },
-    /** Teleport next to a world point, facing the student. */
+    /** Move next to a world point, facing the student: instant while hidden (fade/out of sight), a glide when seen. */
     placeNear(point, offset = new THREE.Vector3(0.6, 0, 0.2)) {
-      root.position.set(point.x + offset.x, base.y, point.z + offset.z);
+      const to = new THREE.Vector3(point.x + offset.x, base.y, point.z + offset.z);
+      if (engine.fadeLevel() < 0.9 && root.visible && root.position.distanceTo(to) > 0.05) return robi.moveTo(to);
+      root.position.copy(to);
       const head = engine.headPosition(new THREE.Vector3());
       root.lookAt(head.x, root.position.y, head.z);
+      return Promise.resolve();
     },
     async gesture(kind) {
       if (kind === 'point') {
         await tween(350, k => { armR.rotation.x = -1.3 * k; }, ease.out);
         await ctx.audio.wait(700);
-        await tween(350, k => { armR.rotation.x = -1.3 * (1 - k); });
+        await tween(350, k => { armR.rotation.x = -1.3 * (1 - k); }, ease.inOut);
       } else if (kind === 'wave') {
         await tween(300, k => { armR.rotation.z = 2.4 * k; });
         await tween(900, k => { armR.rotation.x = Math.sin(k * Math.PI * 4) * 0.35; }, ease.linear);
         await tween(300, k => { armR.rotation.z = 2.4 * (1 - k); armR.rotation.x = 0; });
       } else if (kind === 'shrug') {
-        await tween(300, k => { armL.rotation.z = -0.7 * k; armR.rotation.z = 0.7 * k; head.rotation.z = 0.2 * k; });
+        await tween(300, k => { armL.rotation.z = -0.7 * k; armR.rotation.z = 0.7 * k; }, ease.out);
         await ctx.audio.wait(500);
-        await tween(300, k => { armL.rotation.z = -0.7 * (1 - k); armR.rotation.z = 0.7 * (1 - k); head.rotation.z = 0.2 * (1 - k); });
+        await tween(300, k => { armL.rotation.z = -0.7 * (1 - k); armR.rotation.z = 0.7 * (1 - k); }, ease.inOut);
       }
     },
     setLooking(v) { looking = v; },

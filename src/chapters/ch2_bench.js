@@ -7,6 +7,7 @@ import { HAND_TEMPS, HAND_REPEATS } from '../game/config.js';
 import { decide, leakFx } from './ch3_events.js';
 import { boardAtStation } from './kit.js';
 import { createGraphWall } from '../ui/graphWall.js';
+import { createHandling } from '../lab/handling.js';
 
 const STEP_LINE = { fillCylinder: 'c2_fill', pour: 'c2_pour', yeast: 'c2_yeast', stir: 'c2_stir', stopper: 'c2_stopper', timer: 'c2_timer', read: 'c2_read' };
 
@@ -46,14 +47,11 @@ export async function run(ctx, scope) {
   await scope.say('c2_intro');
 
   // ---- prop → action mapping ----
-  const MAP = [
-    [P.P_cylinder, { type: 'fillCylinder' }], [P.P_trough, { type: 'fillCylinder' }],
-    [P.P_bottle3, { type: 'pour', bottle: '3' }], [P.P_bottle30, { type: 'pour', bottle: '30' }],
-    [P.P_yeastJar, { type: 'yeast' }], [P.P_spoon, { type: 'yeast' }], [P.P_rod, { type: 'stir' }],
-    [P.P_stopperTube, { type: 'stopper', kind: 'tube' }], [P.P_stopperSealed, { type: 'stopper', kind: 'sealed' }],
-    [P.P_timer, { type: 'timer' }],
-  ];
-  for (const [obj, a] of MAP) { input.register(obj, { onSelect: () => doAction(a) }); scope.add(() => input.unregister(obj)); }
+  // the tools are picked up and used by hand (src/lab/handling.js); only the timer is pressed
+  input.register(P.P_timer, { onSelect: () => doAction({ type: 'timer' }) }); scope.add(() => input.unregister(P.P_timer));
+  let lastAct = null;
+  const hands = createHandling(ctx, app, { onAction: (a, o) => { const pr = doAction(a, o); lastAct = { type: a.type, pr }; return pr; } });
+  scope.add(() => hands.dispose());
 
   let resolveTrial;
   const ANIM = {
@@ -61,11 +59,11 @@ export async function run(ctx, scope) {
     stir: () => app.stir(), stopper: a => app.setStopper(a.kind),
   };
 
-  async function playFail(fail, a) {
+  async function playFail(fail, a, physical = false) {
     robi.face('oops');
-    if (fail === 'acidMelt') await app.pour('30');
+    if (fail === 'acidMelt' && !physical) await app.pour('30');
     if (fail === 'sealedBlast') await app.setStopper('sealed');
-    if (fail === 'elephantToothpaste' && a.type === 'stir') await app.stir();
+    if (fail === 'elephantToothpaste' && a.type === 'stir' && !physical) await app.stir();
     await app.fx[fail]();
     await scope.say('fail_' + fail);
     robi.face('happy');
@@ -73,17 +71,19 @@ export async function run(ctx, scope) {
     if (fail === 'cylinderNotFilled') app.reset();
   }
 
-  async function doAction(a) {
-    if (busy || !proc || proc.step === 'done') return;
+  // physical: the student's hand already did the motion (pour / spoon / stir), so only the result plays
+  async function doAction(a, { physical = false } = {}) {
+    if (busy || !proc || proc.step === 'done') { audio.sfx('no'); return { ok: false }; }
     busy = true; app.hint(null);
+    let r;
     try {
-      const r = proc.act(a);
+      r = proc.act(a);
       if (r.fail) {
-        ctx.pendingFx = playFail(r.fail, a); await ctx.pendingFx; ctx.pendingFx = null;
-        if (r.done) return resolveTrial(r.done);
+        ctx.pendingFx = playFail(r.fail, a, physical); await ctx.pendingFx; ctx.pendingFx = null;
+        if (r.done) { resolveTrial(r.done); return r; }
       } else if (r.ok) {
         audio.sfx('click');
-        await ANIM[a.type]?.(a);
+        if (!physical || a.type === 'stopper' || a.type === 'fillCylinder') await ANIM[a.type]?.(a);
         if (a.type === 'timer') {
           const stop = proc.leak ? leakFx(ctx, scope, app.props.flask, { subtle: true }) : null;
           await app.runTrial(proc.volume, 6); stop?.(); openReading();
@@ -91,6 +91,7 @@ export async function run(ctx, scope) {
       } else audio.sfx('no');
     } finally { busy = false; }
     afterStep();
+    return r;
   }
 
   function afterStep() {
@@ -165,21 +166,62 @@ export async function run(ctx, scope) {
     const cleanup = () => { setTimeout(() => { mag.dispose(); cards.forEach(c => c.dispose()); }, ctx.auto ? 50 : 900); readUI = null; };
   }
 
-  // ---- auto driver (tests) ----
+  // ---- auto driver (tests): a virtual hand moves the real tools through the same handling code ----
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const settle = async () => { const p = lastAct?.pr; if (p) await p; await scope.wait(30); };
+  async function handPour(bottle) {
+    const H = hands.virtualHand(), m = app.flaskMouth();
+    await H.grab(bottle === '30' ? P.P_bottle30 : P.P_bottle3);
+    await H.moveTo(V(m.x + 0.142, m.y + 0.1, m.z), 500);
+    lastAct = null; await H.tilt(1.9, 400);
+    for (let i = 0; i < 120 && !lastAct; i++) await scope.wait(25);
+    const r = await lastAct?.pr;
+    if (r?.ok) for (let i = 0; i < 200 && proc.step === 'yeast'; i++) { await scope.wait(25); if (app.flaskLevel() >= 1) break; }
+    await H.tilt(0, 300); await H.release(); await settle();
+  }
+  async function handYeast() {
+    const H = hands.virtualHand(), m = app.flaskMouth(), j = app.jar.getWorldPosition(V(0, 0, 0));
+    await H.grab(P.P_spoon);
+    await H.moveTo(V(j.x, j.y + 0.06, j.z), 400); await scope.wait(60);
+    lastAct = null; await H.moveTo(V(m.x, m.y + 0.05, m.z), 450);
+    for (let i = 0; i < 60 && !lastAct; i++) await scope.wait(25);
+    await H.release(); await settle();
+  }
+  async function handStir() {
+    const H = hands.virtualHand(), m = app.flaskMouth();
+    await H.grab(P.P_rod);
+    lastAct = null; await H.moveTo(V(m.x, m.y + 0.07, m.z), 450);
+    await H.circle(V(m.x, m.y + 0.07, m.z), 3.4, 1600);
+    for (let i = 0; i < 60 && !lastAct; i++) await scope.wait(25);
+    await H.release(); await settle();
+  }
+  async function handStopper(kind) {
+    const H = hands.virtualHand(), m = app.flaskMouth();
+    await H.grab(kind === 'sealed' ? P.P_stopperSealed : P.P_stopperTube);
+    lastAct = null; await H.moveTo(V(m.x, m.y + 0.01, m.z), 450);
+    for (let i = 0; i < 60 && !lastAct; i++) await scope.wait(25);
+    await H.release(); await settle();
+  }
+  async function handCylinder() {
+    const H = hands.virtualHand(), t = app.props.trough.getWorldPosition(V(0, 0, 0));
+    await H.grab(P.P_cylinder);
+    lastAct = null; await H.moveTo(V(t.x, t.y + 0.05, t.z), 500);
+    for (let i = 0; i < 60 && !lastAct; i++) await scope.wait(25);
+    await H.release(); await settle();
+  }
   async function autoPlay() {
     const fail = !failUsed && autofail !== 'boil' ? autofail : null;
     failUsed = true;
-    const step = async a => { await doAction(a); await scope.wait(30); };
-    if (fail !== 'cylinderNotFilled') await step({ type: 'fillCylinder' });
-    if (fail === 'acidMelt') { await step({ type: 'pour', bottle: '30' }); return; }
-    await step({ type: 'pour', bottle: '3' });
-    if (proc.step === 'pour') { await takeGoggles(); await step({ type: 'pour', bottle: '3' }); }
-    await step({ type: 'yeast' });
-    if (fail === 'elephantToothpaste') { await step({ type: 'yeast' }); await step({ type: 'yeast' }); await step({ type: 'stir' }); return; }
-    await step({ type: 'stir' });
-    if (fail === 'sealedBlast') { await step({ type: 'stopper', kind: 'sealed' }); await step({ type: 'pour', bottle: '3' }); await step({ type: 'yeast' }); await step({ type: 'stir' }); }
-    await step({ type: 'stopper', kind: 'tube' });
-    await step({ type: 'timer' });
+    if (fail !== 'cylinderNotFilled') await handCylinder();
+    if (fail === 'acidMelt') { await handPour('30'); return; }
+    await handPour('3');
+    if (proc.step === 'pour') { await takeGoggles(); await handPour('3'); }
+    await handYeast();
+    if (fail === 'elephantToothpaste') { await handYeast(); await handYeast(); await handStir(); return; }
+    await handStir();
+    if (fail === 'sealedBlast') { await handStopper('sealed'); await handPour('3'); await handYeast(); await handStir(); }
+    await handStopper('tube');
+    await doAction({ type: 'timer' }); await scope.wait(30);
     if (readUI) { const i = readUI.opts.indexOf(readUI.v); input.select(readUI.cards[i].mesh); }
   }
 
@@ -207,7 +249,7 @@ export async function run(ctx, scope) {
     while (!valid) {
       app.emptyFlask(); app.setGas(50);
       proc = createProcedure({ game, rng, trialIndex: hintIdx, goggles, requiredTemp: curT, bathReady: true, leak: isLeak });
-      proc.leak = isLeak;
+      proc.leak = isLeak; hands.enable(true);
       const d0 = new Promise(res => { resolveTrial = res; });
       afterStep();
       if (ctx.auto) autoPlay().catch(() => {});

@@ -270,6 +270,69 @@ test('chapter 4: a kept student leak is walked with the leak cause', async ({ pa
   expect(errors).toEqual([]);
 });
 
+for (const ch of ['bench', 'robot', 'rescue']) {
+  test(`motion: nothing visibly jumps in ${ch}`, async ({ page }) => {
+    test.setTimeout(900_000);
+    const errors = await boot(page, `&auto&animspeed=2&only=${ch}&hand=20,40&seed=7`);
+    await page.waitForFunction(c => window.__chapterDone === c, ch, { timeout: 880_000 });
+    expect(await page.evaluate(() => window.__ctx.motionAudit)).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('chapter 6: the fever case shows a patient in the bed', async ({ page }) => {
+  const errors = await boot(page, '&auto&only=life');
+  await page.waitForFunction(() => window.__ctx.loco.current === 'case1' && window.__ctx.patientVisible === true, null, { timeout: 170_000 });
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${SHOTS}/ch6-patient.png` });
+  expect(errors).toEqual([]);
+});
+
+const screenOf = (page, expr) => page.evaluate(e => {
+  const { engine } = window.__ctx; const o = eval(e);
+  const v = (o.isVector3 ? o.clone() : o.getWorldPosition(new o.position.constructor())).project(engine.camera);
+  return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight };
+}, expr);
+
+test('desktop drag: dragging the 3% bottle over the flask pours', async ({ page }) => {
+  const errors = await boot(page, '&handdemo');
+  await page.waitForFunction(() => window.__handReady);
+  await page.waitForTimeout(800);
+  const b = await screenOf(page, 'window.__ctx.lab.props.P_bottle3.getWorldPosition(new window.__ctx.engine.camera.position.constructor()).add(new window.__ctx.engine.camera.position.constructor(0, 0.07, 0))');
+  const m = await screenOf(page, 'window.__ctx.app.flaskMouth()');
+  await page.mouse.move(b.x, b.y); await page.waitForTimeout(300);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) { await page.mouse.move(b.x + (m.x - b.x) * i / 10, b.y + (m.y - b.y) * i / 10); await page.waitForTimeout(60); }
+  await page.waitForTimeout(3500);
+  await page.screenshot({ path: `${SHOTS}/drag-pour.png` });
+  const st = await page.evaluate(() => ({ lvl: window.__ctx.app.flaskLevel(), log: window.__ctx.handLog }));
+  await page.mouse.up();
+  expect(st.log).toContain('pour');
+  expect(st.lvl).toBeGreaterThan(0.5);
+  expect(errors).toEqual([]);
+});
+
+test('desktop drag on empty space still turns the view', async ({ page }) => {
+  const errors = await boot(page, '&handdemo');
+  await page.waitForFunction(() => window.__handReady);
+  const yaw0 = await page.evaluate(() => window.__ctx.engine.camera.getWorldDirection(new window.__ctx.engine.camera.position.constructor()).x);
+  await page.mouse.move(640, 120); await page.mouse.down(); await page.mouse.move(400, 120, { steps: 8 }); await page.mouse.up();
+  const yaw1 = await page.evaluate(() => window.__ctx.engine.camera.getWorldDirection(new window.__ctx.engine.camera.position.constructor()).x);
+  expect(Math.abs(yaw1 - yaw0)).toBeGreaterThan(0.1);
+  expect(errors).toEqual([]);
+});
+
+test('chapter 2 hands: the virtual hand pours, spoons, stirs and plugs', async ({ page }) => {
+  test.setTimeout(480_000);
+  const errors = await boot(page, '&auto&only=bench&hand=20,40&seed=7');
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 470_000 });
+  const log = await page.evaluate(() => window.__ctx.handLog);
+  expect(log.slice(0, 5)).toEqual(['fillCylinder', 'pour', 'yeast', 'stir', 'stopper']);
+  const s = await page.evaluate(() => window.__ctx.game.s);
+  for (const T of [20, 40]) expect(s.trials[T].filter(t => t.by === 'student' && t.valid).length).toBe(3);
+  expect(errors).toEqual([]);
+});
+
 test('full auto run: boot to the end screen', async ({ page }) => {
   test.setTimeout(900_000);
   const errors = await boot(page, '&auto');

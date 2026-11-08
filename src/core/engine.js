@@ -63,6 +63,8 @@ export function createEngine(el) {
         });
       });
     },
+    /** Current fade-to-black level (0 clear … 1 black). */
+    fadeLevel: () => (fadeMesh.visible ? fadeMat.opacity : 0),
     /** Resolves after the next rendered frame (XR head pose is one frame behind a rig move). */
     nextFrame() { return new Promise(r => { const off = engine.onFrame(() => { off(); r(); }); }); },
     /** World-space head position. */

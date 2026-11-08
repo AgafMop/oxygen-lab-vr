@@ -4,7 +4,7 @@ import { makeTween, ease } from '../core/tween.js';
 
 export function createFigure(ctx, { hologram = false, tint = null } = {}) {
   const { engine, lab } = ctx;
-  const tween = makeTween(engine, ctx.auto ? 8 : 1);
+  const tween = makeTween(engine, ctx.animSpeed ?? (ctx.auto ? 8 : 1));
   const root = lab.crewScene.clone(true);
   const N = {}; root.traverse(o => { const k = o.name.replace(/_\d+$/, ''); if (o.name.startsWith('C_') && !N[k]) N[k] = o; });  // parent group wins over its _1/_2 primitives
   const fig = N.C_root || root;
@@ -36,6 +36,14 @@ export function createFigure(ctx, { hologram = false, tint = null } = {}) {
   });
 
   const faceTo = (p) => { root.lookAt(p.x, root.position.y, p.z); };
+  function turnTo(p, ms) {
+    let d = Math.atan2(p.x - root.position.x, p.z - root.position.z) - root.rotation.y;
+    while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    if (Math.abs(d) < 0.02) return Promise.resolve();
+    const y0 = root.rotation.y;
+    return tween(ms, k => { root.rotation.y = y0 + d * k; }, ease.inOut);
+  }
+  ctx.track?.(root, hologram ? 'commander' : 'azoulay');
   return {
     root, parts: N,
     show(pos, lookAt) { root.position.copy(pos); if (lookAt) faceTo(lookAt); root.visible = true; },
@@ -43,11 +51,16 @@ export function createFigure(ctx, { hologram = false, tint = null } = {}) {
     faceTo,
     async walkTo(to, { speed = 0.9, lookAt } = {}) {
       const from = root.position.clone(); const d = from.distanceTo(to);
-      faceTo(to); walking = 1;
-      await tween((d / speed) * 1000, k => root.position.lerpVectors(from, to, k), ease.linear);
-      walking = 0; for (const k of ['C_legL', 'C_legR', 'C_armL', 'C_armR']) N[k].rotation.x = 0;
-      if (lookAt) faceTo(lookAt);
+      await turnTo(to, 350);
+      await tween(Math.max(500, (d / speed) * 1000), (k, raw) => {
+        root.position.lerpVectors(from, to, k);
+        walking = Math.min(1, Math.sin(raw * Math.PI) * 2);      // gait fades in and out with the speed
+      }, ease.inOut);
+      walking = 0;
+      await tween(200, k => { for (const n of ['C_legL', 'C_legR', 'C_armL', 'C_armR']) N[n].rotation.x *= 1 - k; });
+      if (lookAt) await turnTo(lookAt, 400);
     },
+    turnTo: p => turnTo(p, 400),
     async gesture(kind) {
       const A = N.C_armR, H = N.C_head, T = N.C_torso;
       if (kind === 'dial') {

@@ -40,6 +40,27 @@ const seed = Number(params.get('seed')) || (Date.now() % 100000);
 const storage = createStorage();
 const game = createGame({ seed, storage });
 const ctx = { engine, input, ui, audio, game, storage, ready: false, params, auto: AUTO, seed };
+ctx.animSpeed = Number(params.get('animspeed')) || (AUTO ? 8 : 1);    // ?animspeed=1: auto choices at real animation speed
+if (TEST) {          // motion audit: a visible tracked object must not jump (> 5 cm per frame at real speed) outside a fade
+  ctx.motionAudit = []; const tracked = new Map(), seenJump = new Set(), P = new THREE.Vector3();
+  ctx.track = (o, name) => { if (o && !tracked.has(o)) tracked.set(o, { name, last: null, vis: false }); };
+  const shown = o => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return !!o.parent; };
+  engine.onAfterRender(() => {
+    // a jump = an isolated one-frame step: still before, ≥ 6 cm in one frame, still after (animations ramp up and down)
+    const dark = engine.fadeLevel() >= 0.9;
+    for (const [o, t] of tracked) {
+      const vis = shown(o); o.getWorldPosition(P);
+      const d = vis && t.vis && t.last && !dark ? P.distanceTo(t.last) : 0;
+      if (t.spike && d < 0.004) {
+        const key = `${t.name}|${game.s.chapter}`;
+        if (!seenJump.has(key)) { seenJump.add(key); ctx.motionAudit.push({ name: t.name, chapter: game.s.chapter, dist: Math.round(t.spike * 100) / 100 }); }
+      }
+      t.spike = d >= 0.06 && (t.prevD ?? 0) < 0.004 ? d : 0;
+      t.prevD = d;
+      t.last = (t.last || new THREE.Vector3()).copy(P); t.vis = vis;
+    }
+  });
+}
 const saved = !params.has('only') && !params.has('fresh') ? storage.get(SAVE_KEY) : null;
 if (TEST) window.__ctx = ctx;
 if (TEST && params.has('tour')) {          // screenshot tour: grab the frame after each new board has rendered twice
@@ -67,6 +88,7 @@ async function boot() {
   const needIntro = (!saved?.chapter || saved.chapter === 'intro') && (!params.get('only') || params.get('only') === 'intro');
   if (needIntro && !params.has('novideo') && (!AUTO || params.has('video'))) ctx.introVideoSrc = createIntroVideo();   // preload while the lab loads
   ctx.lab = await loadLab(engine);
+  for (const [n, o] of Object.entries(ctx.lab.props)) if (!/_\d+$/.test(n)) ctx.track?.(o, n);   // whole props, not their sub-meshes
   ctx.loco = createLocomotion(engine, input);
   // robot station: step back and aim between the robot bench and the graph wall so both fit in view
   const st = ctx.lab.stationNodes.robot; st.position.x = 1.1; st.position.z = 0.55;
@@ -113,6 +135,7 @@ async function start(vr) {
   if (params.has('uidemo')) return uiDemo();
   if (params.has('fx')) return fxDemo(params.get('fx'));
   if (params.has('trialdemo')) return trialDemo();
+  if (params.has('handdemo')) return handDemo();
   if (params.has('nogame')) return;     // engine-only tests
   runGame().catch(err => { console.error(err); });
 }
@@ -232,6 +255,16 @@ async function trialDemo() {
   await app.setBath(37, 1500); await app.fillCylinder(); await app.pour('3'); await app.addYeast(); await app.stir();
   await app.setStopper('tube'); window.__running = true; await app.runTrial(34, 5);
   window.__fxDone = true;
+}
+
+// test route: the bench tools are live for the hand; every action is accepted (desktop drag / pour tests)
+async function handDemo() {
+  const { createHandling } = await import('./lab/handling.js');
+  ctx.app.goggles();
+  const hands = createHandling(ctx, ctx.app, { onAction: async () => ({ ok: true }) });
+  hands.enable(true);
+  ctx.hands = hands;
+  window.__handReady = true;
 }
 
 $('enter').addEventListener('click', () => start(false));

@@ -3,19 +3,21 @@ import * as THREE from 'three';
 import { mean, bestTemp, trueRate } from '../game/model.js';
 import { createFigure } from '../lab/crew.js';
 import { boardAtStation } from './kit.js';
+import { consoleSpot } from './ch3_events.js';
 import { makeTween } from '../core/tween.js';
 
 const DIAL = [20, 25, 30, 35, 40, 45, 50, 55, 60];
 
 export async function run(ctx, scope) {
   const { loco, robi, game, audio, ui, input, mood, lab, engine } = ctx;
-  const tween = makeTween(engine, ctx.auto ? 8 : 1);
+  const tween = makeTween(engine, ctx.animSpeed ?? (ctx.auto ? 8 : 1));
   await loco.goTo('generator');
   const st = loco.stations.generator.pos;
   robi.placeNear(st, new THREE.Vector3(-0.3, 0, 1.0));
   const azoulay = scope.add(createFigure(ctx));
   const commander = scope.add(createFigure(ctx, { hologram: true }));
-  azoulay.show(new THREE.Vector3(st.x - 1.45, 0, st.z - 0.95), st);
+  const spot = consoleSpot(ctx);
+  azoulay.show(spot.pos, spot.look);
   commander.show(new THREE.Vector3(st.x - 1.5, 0, st.z + 1.0), st);
   mood.set({ alarm: 0.35 });
 

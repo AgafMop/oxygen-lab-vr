@@ -56,8 +56,14 @@ export async function run(ctx, scope) {
     robi.placeNear(s.pos, new THREE.Vector3(0, 0, -0.7));
     const fig = scope.add(createFigure(ctx, { tint: i % 2 ? 0xe7efe9 : 0xefe7df }));
     if (cs.pose === 'lying') {
-      fig.show(new THREE.Vector3(a.x, 0.72, a.z - 0.7), null);
+      // on the mattress (bed centred on the anchor, pillow toward -z): feet at +0.85, lying on the back
+      fig.show(new THREE.Vector3(a.x, 0.88, a.z + 0.85), null);
       fig.root.rotation.set(-Math.PI / 2, 0, 0);
+      const blanket = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.06, 1.0), new THREE.MeshStandardMaterial({ color: 0x9fc3d6, roughness: 0.9 }));
+      blanket.position.set(a.x, 0.97, a.z + 0.38); engine.scene.add(blanket);
+      const breathe = engine.onFrame(() => { blanket.position.y = 0.97 + Math.sin(performance.now() * 0.0025) * 0.004; });
+      scope.add(() => { breathe(); engine.scene.remove(blanket); blanket.geometry.dispose(); blanket.material.dispose(); ctx.patientVisible = false; });
+      ctx.patientVisible = true;
     } else fig.show(new THREE.Vector3(a.x, 0, a.z + 0.55), s.pos);
     await scope.say(`c6_${cs.id}_q`);
     const b = boardAtStation(ctx, scope, sid, { dist: 0.75, height: 1.15 });
