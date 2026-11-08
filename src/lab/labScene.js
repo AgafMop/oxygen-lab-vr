@@ -145,5 +145,10 @@ export async function loadLab(engine, base = 'assets/') {
     pair.position.set(0, 0.03 / G.getWorldScale(new THREE.Vector3()).y, 0);
     G.userData.glass = false;
   }
+  // the stirring rod: tinted, more solid glass so it reads on the white bench (clear glass all but vanished)
+  P.P_rod?.traverse(o => { if (o.isMesh) {
+    o.material = new THREE.MeshStandardMaterial({ color: 0x2c5566, transparent: true, opacity: 0.9, roughness: 0.12, metalness: 0.1, envMapIntensity: 1.4 });
+    o.renderOrder = 2; } });
+  if (P.P_rod) { P.P_rod.scale.y *= 1.6; P.P_rod.scale.z *= 1.6; }      // thicker (it lies along its local x)
   return { root, anchors, stationNodes, discs, screens, alarms, props: P, robi: R, glass, dust, crewScene: crew.scene, crewFScene: crewF.scene, alarmLight };
 }

@@ -12,7 +12,6 @@ import { createGame } from './game/state.js';
 import { createStorage } from './game/storage.js';
 import { CHAPTERS } from './game/config.js';
 import { skipFill } from './game/skipFill.js';
-import { createWind } from './fx/wind.js';
 import { makeRng } from './game/model.js';
 import { createScope, Abort } from './chapters/kit.js';
 import * as ch0 from './chapters/ch0_intro.js';
@@ -149,7 +148,6 @@ async function boot() {
   ctx.robi = createRobi(ctx);
   ctx.mood = createMood(ctx);
   createLabSigns(ctx);
-  ctx.wind = createWind(ctx);
   ctx.robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45), { instant: true });
   await ui.fontsReady;
   $('enter').disabled = false; $('enter').textContent = 'כניסה במחשב';
