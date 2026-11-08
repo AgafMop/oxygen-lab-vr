@@ -58,9 +58,9 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
   setGas(50); // starts full of air until filled
 
   // scale on the cylinder (0 at the closed top)
-  const scale = ui.panel({ w: 0.028, h: 0.205, ppm: 5000, draw(g, W, H) {
-    g.direction = 'ltr'; g.fillStyle = '#10202a'; g.font = `600 52px "IBM Plex Mono", monospace`; g.textBaseline = 'middle';
-    const top = (0.205 - GAS_TOP + 0.005) / 0.205 * H + 10, step = (ML_M / 0.205) * H;
+  const scale = ui.panel({ w: 0.032, h: 0.205, ppm: 5000, name: 'cylinderScale', realWorld: true, draw(g, W, H) {
+    g.direction = 'ltr'; g.fillStyle = '#10202a'; g.font = `600 48px "IBM Plex Mono", monospace`; g.textBaseline = 'middle';
+    const top = (0.205 - GAS_TOP + 0.005) / 0.205 * H + 30, step = (ML_M / 0.205) * H;
     for (let ml = 0; ml <= 50; ml++) {
       const y = top + ml * step;
       g.fillRect(0, y - 3, ml % 5 ? 40 : 70, ml % 5 ? 4 : 7);
@@ -77,16 +77,16 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
   setThermo(22);
 
   // displays
-  const tDisp = timer ? ui.panel({ w: 0.068, h: 0.026, ppm: 4000, draw(g, W, H, s = 60) {
+  const tDisp = timer ? ui.panel({ w: 0.068, h: 0.026, ppm: 4000, viewDist: 0.6, name: 'timerDisplay', draw(g, W, H, s = 60) {
     g.fillStyle = '#0d1d18'; g.fillRect(0, 0, W, H); g.direction = 'ltr'; g.fillStyle = '#5fffc0';
     g.font = `700 ${H * 0.8}px "IBM Plex Mono", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(`00:${String(Math.ceil(s)).padStart(2, '0')}`, W / 2, H / 2 + 4);
   } }) : null;
   if (tDisp) { tDisp.mesh.position.set(0, 0.035, 0.0262); timer.add(tDisp.mesh); }
-  const bDisp = ui.panel({ w: 0.088, h: 0.044, ppm: 3000, draw(g, W, H, t = 22, target = null) {
+  const bDisp = ui.panel({ w: 0.088, h: 0.044, ppm: 3000, viewDist: 0.6, name: 'bathDisplay', draw(g, W, H, t = 22, target = null) {
     g.fillStyle = '#0d1d18'; g.fillRect(0, 0, W, H); g.direction = 'ltr'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = '#ffb36b'; g.font = `700 ${H * 0.5}px "IBM Plex Mono", monospace`; g.fillText(`${t.toFixed(1)}°`, W / 2, H * 0.4);
-    if (target != null) { g.fillStyle = '#9fb0c8'; g.font = `600 ${H * 0.24}px "IBM Plex Mono", monospace`; g.fillText(`SET ${target}°`, W / 2, H * 0.8); }
+    g.fillStyle = '#ffb36b'; g.font = `700 ${H * 0.46}px "IBM Plex Mono", monospace`; g.fillText(`${t.toFixed(1)}°`, W / 2, H * 0.34);
+    if (target != null) { g.fillStyle = '#9fb0c8'; g.font = `600 ${H * 0.34}px "IBM Plex Mono", monospace`; g.fillText(`SET ${target}°`, W / 2, H * 0.78); }
   } });
   bDisp.mesh.position.set(-0.07, 0.042, -0.17 - 0.0005);
   bDisp.mesh.rotation.y = Math.PI; // the bath front faces the student (bath local -z after export? fixed below)
@@ -283,13 +283,13 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
       g.fillStyle = 'rgba(61,134,200,0.55)'; g.fillRect(W * 0.25, mid, W * 0.5, H);
       g.fillStyle = 'rgba(234,252,255,0.6)'; g.fillRect(W * 0.25, 0, W * 0.5, mid);
       g.strokeStyle = '#2d6ea8'; g.lineWidth = 5; g.beginPath(); g.moveTo(W * 0.25, mid - 8); g.quadraticCurveTo(W / 2, mid + 14, W * 0.75, mid - 8); g.stroke();
-      g.fillStyle = '#10202a'; g.direction = 'ltr'; g.font = `700 ${ppm * 0.9}px "IBM Plex Mono", monospace`; g.textBaseline = 'middle';
+      g.fillStyle = '#10202a'; g.direction = 'ltr'; g.font = `700 ${ppm * 1.1}px "IBM Plex Mono", monospace`; g.textBaseline = 'middle';
       const start = Math.floor(volume) - 6;
       for (let ml = start; ml <= start + 13; ml++) {
         const y = mid + (ml - volume) * ppm;
         if (ml < 0 || ml > 50) continue;
         g.fillRect(W * 0.25, y - 2, ml % 5 ? W * 0.08 : W * 0.15, ml % 5 ? 3 : 6);
-        if (ml % 5 === 0) g.fillText(String(ml), W * 0.42, y);
+        if (ml % 5 === 0 && y > ppm && y < H - ppm) g.fillText(String(ml), W * 0.42, y);
       }
     },
     // ---------- failure FX ----------

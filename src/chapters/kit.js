@@ -69,9 +69,13 @@ const INK = '#EEF2F8', OXY = '#3CC4BC', MARS = '#E8643A';
 export const ICON = {
   graph(shape) {
     return (g, x, y, w, h) => {
+      // axis labels inside the icon box: oxygen (rotated) on the left, temperature along the bottom
+      const f = Math.round(h * 0.16); const lm = f * 1.3, bm = f * 1.4;
+      g.fillStyle = '#9FB0C8'; g.font = `600 ${f}px Heebo`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('טמפרטורה →', x + lm + (w - lm) / 2, y + h - bm / 2);
+      g.save(); g.translate(x + lm / 2, y + (h - bm) / 2); g.rotate(-Math.PI / 2); g.fillText('חמצן', 0, 0); g.restore();
+      x += lm; w -= lm; h -= bm;
       g.strokeStyle = '#7f93b0'; g.lineWidth = 6; g.beginPath(); g.moveTo(x + 10, y); g.lineTo(x + 10, y + h); g.lineTo(x + w, y + h); g.stroke();
-      g.fillStyle = '#9FB0C8'; g.font = `600 ${h * 0.11}px Heebo`; g.textAlign = 'center'; g.fillText('טמפרטורה →', x + w / 2, y + h + h * 0.1 - 4);
-      g.save(); g.translate(x - 4, y + h / 2); g.rotate(-Math.PI / 2); g.fillText('חמצן', 0, 0); g.restore();
       g.strokeStyle = OXY; g.lineWidth = 12; g.lineCap = 'round'; g.beginPath();
       const X = t => x + 20 + t * (w - 30), Y = v => y + h - 10 - v * (h - 20);
       // math convention (as in Israeli textbooks): temperature grows to the right
@@ -94,7 +98,7 @@ export const ICON = {
     const cx = x + w / 2; g.fillStyle = '#8a4a1c'; g.beginPath(); g.roundRect(cx - w * 0.2, y + h * 0.3, w * 0.4, h * 0.65, 18); g.fill();
     g.fillRect(cx - w * 0.08, y + h * 0.12, w * 0.16, h * 0.2); g.fillStyle = '#eee'; g.fillRect(cx - w * 0.1, y + h * 0.04, w * 0.2, h * 0.1);
     g.fillStyle = '#f2f2f2'; g.fillRect(cx - w * 0.2, y + h * 0.5, w * 0.4, h * 0.2);
-    g.fillStyle = '#1b3a66'; g.font = `800 ${h * 0.13}px Heebo`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('3%', cx, y + h * 0.6);
+    g.fillStyle = '#1b3a66'; g.font = `800 ${h * 0.2}px Heebo`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('3%', cx, y + h * 0.6);
   },
   spoon: (g, x, y, w, h) => {
     g.strokeStyle = '#cfd6de'; g.lineWidth = 12; g.lineCap = 'round'; g.beginPath(); g.moveTo(x + w * 0.2, y + h * 0.85); g.lineTo(x + w * 0.62, y + h * 0.35); g.stroke();

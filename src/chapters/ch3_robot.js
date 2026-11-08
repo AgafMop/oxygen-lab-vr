@@ -34,10 +34,10 @@ export async function run(ctx, scope) {
   const temps = [];
   for (let t = SLIDER.min; t <= SLIDER.max; t += SLIDER.step) temps.push(t);
   const plan = new Set(game.s.plan.length ? game.s.plan.filter(t => t !== FIRST_TEMP) : []);
-  const fb = scope.add(ui.panel({ w: 0.9, h: 0.09, draw(g, W, H, f) {
+  const fb = scope.add(ui.panel({ w: 0.9, h: 0.09, name: 'planFeedback', draw(g, W, H, f) {
     if (!f) return;
-    g.fillStyle = f.msg ? ui.C.mars : ui.C.oxy; g.font = `700 ${H * 0.5}px ${ui.FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText({ few: 'צריך לפחות 5 טמפרטורות', many: 'יותר מ-7 טמפרטורות יגמרו את החמצן', oneSided: 'צריך גם מתחת ל-35° וגם מעל 45°', budget: `התוכנית צריכה ${f.cost} דקות חמצן, ויש רק ${game.s.o2}` }[f.msg] || `תוכנית טובה: ${f.cost} דקות חמצן. לוחצים הפעלה!`, W / 2, H / 2);
+    g.fillStyle = f.msg ? ui.C.mars : ui.C.oxy;
+    ui.fitText(g, { few: 'צריך לפחות 5 טמפרטורות', many: 'יותר מ-7 טמפרטורות יגמרו את החמצן', oneSided: 'צריך גם מתחת ל-35° וגם מעל 45°', budget: `התוכנית צריכה ${f.cost} דקות חמצן, ויש רק ${game.s.o2}` }[f.msg] || `תוכנית טובה: ${f.cost} דקות חמצן. לוחצים הפעלה!`, { x: W * 0.03, y: 0, w: W * 0.94, h: H, maxPx: H * 0.5, minPx: ui.minPx(900), font: ui.FONT });
   } }));
   fb.mesh.position.set(0, 0.2, 0.01); b.add(fb.mesh);
   const chipW = 0.058, gap = 0.008;
@@ -144,7 +144,7 @@ export async function run(ctx, scope) {
   function readByStudent(v) {
     return new Promise(res => {
       const rb = boardAtStation(ctx, scope, 'robot', { dist: 0.62, height: 1.1, side: -0.28 });
-      const mag = scope.add(ui.panel({ w: 0.18, h: 0.24, draw: (g, W, H) => rapp.readingDraw(g, W, H, v) }));
+      const mag = scope.add(ui.panel({ w: 0.18, h: 0.24, name: 'magnifier', draw: (g, W, H) => rapp.readingDraw(g, W, H, v) }));
       mag.mesh.position.set(0.14, 0, 0.01); rb.add(mag.mesh);
       const opts = [v, v + 3, v >= 3 ? v - 2.5 : v + 6].sort(() => rng() - 0.5);   // distinct, never negative
       let first = true, answered = false;

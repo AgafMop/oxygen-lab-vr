@@ -125,7 +125,7 @@ export async function run(ctx, scope) {
   function openReading() {
     const v = proc.volume;
     const b = boardAtStation(ctx, scope, 'bench', { dist: 0.6, height: 1.12, side: -0.05 });
-    const mag = scope.add(ui.panel({ w: 0.2, h: 0.26, draw: (g, W, H) => app.readingDraw(g, W, H, v) }));
+    const mag = scope.add(ui.panel({ w: 0.2, h: 0.26, name: 'magnifier', draw: (g, W, H) => app.readingDraw(g, W, H, v) }));
     mag.mesh.position.set(0.16, 0, 0.01); b.add(mag.mesh);
     const opts = [v, v >= 2 ? v + (rng() < 0.5 ? 2 : -2) : v + 2, v >= 4 ? v + (rng() < 0.5 ? 5 : -4) : v + 5].map(x => Math.round(x * 2) / 2);
     for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
@@ -183,10 +183,10 @@ export async function run(ctx, scope) {
   const vols = game.s.trials[FIRST_TEMP].filter(t => t.valid).map(t => t.volume);
   const m = mean(vols);
   const b = boardAtStation(ctx, scope, 'bench', { dist: 0.75, height: 1.3 });
-  const chart = scope.add(ui.panel({ w: 0.42, h: 0.28, draw(g, W, H) {
+  const chart = scope.add(ui.panel({ w: 0.42, h: 0.28, name: 'miniChart', draw(g, W, H) {
     ui.rr(g, 4, 4, W - 8, H - 8, 26); g.fillStyle = ui.C.bg; g.fill();
-    g.direction = 'rtl'; g.fillStyle = ui.C.ink; g.font = `700 ${H * 0.09}px ${ui.FONT}`; g.textAlign = 'center';
-    g.fillText(`שלוש חזרות ב-37° · ממוצע ${m.toFixed(1)} מ״ל`, W / 2, H * 0.13);
+    g.direction = 'rtl'; g.fillStyle = ui.C.ink;
+    ui.fitText(g, `שלוש חזרות ב-37° · ממוצע ${m.toFixed(1)} מ״ל`, { x: W * 0.05, y: H * 0.04, w: W * 0.9, h: H * 0.16, maxPx: H * 0.09, minPx: ui.minPx(900), font: ui.FONT }); g.textAlign = 'center';
     const lo = Math.min(...vols) - 4, hi = Math.max(...vols) + 4, Y = v => H * 0.88 - (v - lo) / (hi - lo) * H * 0.62;
     g.strokeStyle = ui.C.mars; g.lineWidth = 6; g.setLineDash([16, 10]); g.beginPath(); g.moveTo(W * 0.12, Y(m)); g.lineTo(W * 0.88, Y(m)); g.stroke(); g.setLineDash([]);
     vols.forEach((v, i) => { g.fillStyle = ui.C.oxy; g.beginPath(); g.arc(W * (0.3 + i * 0.2), Y(v), 16, 0, 7); g.fill(); g.fillStyle = ui.C.ink; g.font = `600 ${H * 0.07}px ${ui.FONT}`; g.fillText(`${v}`, W * (0.3 + i * 0.2), Y(v) - 26); });

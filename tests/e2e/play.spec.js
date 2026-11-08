@@ -13,6 +13,9 @@ async function boot(page, query = '') {
   return errors;
 }
 
+// every string drawn on a 3D panel stayed inside its box at a readable size (ui.textAudit, ?test only)
+const expectTextFits = async page => expect(await page.evaluate(() => window.__ctx.ui.textAudit.map(v => `${v.name}: «${v.text}» ${v.overflow ? 'overflow' : ''}${v.small ? `small ${v.px}px<${v.need}` : ''}`))).toEqual([]);
+
 const budget = page => page.evaluate(() => {
   const { renderer, scene, camera } = window.__ctx.engine;
   renderer.info.autoReset = false; renderer.info.reset();
@@ -89,6 +92,7 @@ test('chapter 1 auto', async ({ page }) => {
   const s = await page.evaluate(() => window.__ctx.game.s);
   expect(s.hypothesis).toBe('peak');
   expect(s.flags.varsFirstTry).toBe(true);
+  await expectTextFits(page);
   expect(errors).toEqual([]);
 });
 
@@ -119,6 +123,7 @@ test('chapter 2 autofail acidMelt: game over, restore, finish', async ({ page })
   const s = await page.evaluate(() => window.__ctx.game.s);
   expect(s.o2).toBe(315);
   expect(s.flags.hadGameOver).toBe(true);
+  await expectTextFits(page);
   expect(errors).toEqual([]);
 });
 
@@ -148,6 +153,7 @@ test('chapter 3 low oxygen: game over mid-run, then restore and finish', async (
   const s = await page.evaluate(() => window.__ctx.game.s);
   expect(Object.values(s.trials).flat().length).toBe(20);
   expect(s.o2).toBe(360 - 20 * 15);
+  await expectTextFits(page);
   expect(errors).toEqual([]);
 });
 
@@ -167,6 +173,7 @@ test('chapter 4 auto: outlier disqualified, peak found, enzyme zoom', async ({ p
   expect(Math.abs(s.peakPick - 45)).toBeLessThanOrEqual(5);
   const calls = await page.evaluate(() => window.__ctx.engine.renderer.info.render.calls);
   expect(calls).toBeLessThanOrEqual(150);
+  await expectTextFits(page);
   expect(errors).toEqual([]);
 });
 
@@ -186,6 +193,7 @@ test('full auto run: boot to the end screen', async ({ page }) => {
   expect(final.stars).toBeGreaterThanOrEqual(2);
   const budget = await page.evaluate(() => window.__budget);
   for (const b of Object.values(budget)) { expect(b.calls).toBeLessThanOrEqual(150); expect(b.tris).toBeLessThanOrEqual(300_000); }
+  await expectTextFits(page);
   expect(errors).toEqual([]);
 });
 
@@ -295,6 +303,7 @@ test('chapter 5 auto: the generator is set to the student peak and the base is s
   expect(s.gen).toBeGreaterThan(0.9);
   expect(s.alarm).toBe(0);
   await page.screenshot({ path: `${SHOTS}/ch5.png` });
+  await expectTextFits(page);
   expect(errors).toEqual([]);
 });
 
@@ -312,5 +321,6 @@ test('chapter 6 auto: four life cases in the corridor, then back to the lab', as
   expect(s.at).toBe('bench');
   const calls = await page.evaluate(() => window.__budget.life.calls);
   expect(calls).toBeLessThanOrEqual(150);
+  await expectTextFits(page);
   expect(errors).toEqual([]);
 });

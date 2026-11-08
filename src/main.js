@@ -34,7 +34,7 @@ const AUTO = params.has('auto');
 
 const engine = createEngine(document.body);
 const input = createInput(engine);
-const ui = createUI(engine, input);
+const ui = createUI(engine, input, { audit: TEST });
 const audio = createAudio(ui, { fast: AUTO });
 const seed = Number(params.get('seed')) || (Date.now() % 100000);
 const storage = createStorage();
