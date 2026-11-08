@@ -74,10 +74,12 @@ export function createHandling(ctx, app, { onAction }) {
       grabbable: true,
       onGrab: (obj, holder) => grab(obj, holder),
       onRelease: () => { if (held?.t.obj === t.obj) dropAt(); },
-      onSelect: () => {                                    // a plain click: show what to do instead
-        if (!enabled) return;
-        app.hint(t.obj);
-        if (!hintSaid) { hintSaid = true; audio.say('c2_grab_hint'); }
+      onSelect: () => {                                    // a plain click / trigger: the tool does its job by itself (the easy way)
+        if (!enabled || held) return;
+        const a = t.kind === 'pour' ? { type: 'pour', bottle: t.bottle } : t.kind === 'spoon' ? { type: 'yeast' }
+          : t.kind === 'stir' ? { type: 'stir' } : t.kind === 'stopper' ? { type: 'stopper', kind: t.stopper } : { type: 'fillCylinder' };
+        ctx.handLog.push('click:' + a.type);
+        onAction(a, { physical: false });
       },
     });
   }
@@ -155,8 +157,8 @@ export function createHandling(ctx, app, { onAction }) {
     }
 
     if (t.kind === 'spoon') {
-      if (!t.loaded && near(pos, wp(app.jar).add(new THREE.Vector3(0, 0.06, 0)), 0.07)) { t.loaded = true; heap.visible = true; audio.sfx('click'); }
-      if (t.loaded && horiz(pos, m) < 0.06 && pos.y < m.y + 0.09) {
+      if (!t.loaded && near(pos, wp(app.jar).add(new THREE.Vector3(0, 0.06, 0)), 0.13)) { t.loaded = true; heap.visible = true; audio.sfx('click'); }
+      if (t.loaded && horiz(pos, m) < 0.1 && pos.y < m.y + 0.16) {
         t.loaded = false; heap.visible = false;
         app.dropYeast();
         act({ type: 'yeast' });
@@ -167,8 +169,8 @@ export function createHandling(ctx, app, { onAction }) {
       const axis = new THREE.Vector3(1, 0, 0).applyQuaternion(o.getWorldQuaternion(new THREE.Quaternion()));
       const a1 = pos.clone().addScaledVector(axis, 0.1), a2 = pos.clone().addScaledVector(axis, -0.1);
       const tip = a1.y < a2.y ? a1 : a2;                   // the rod lies along its local x, centred: the lower end stirs
-      const inside = horiz(tip, m) < 0.045 && tip.y < m.y;
-      const p = held.stir.feed(Math.atan2(tip.x - m.x, tip.z - m.z), inside);
+      const inside = horiz(tip, m) < 0.08 && tip.y < m.y + 0.04;
+      const p = Math.min(1, held.stir.feed(Math.atan2(tip.x - m.x, tip.z - m.z), inside) * 2);   // 1.5 turns are enough
       ring.visible = inside || p > 0; ring.position.set(m.x, m.y + 0.01, m.z);
       ring.geometry.dispose(); ring.geometry = new THREE.RingGeometry(0.055, 0.065, 48, 1, 0, Math.max(0.001, p * Math.PI * 2));
       app.stirTint(p);

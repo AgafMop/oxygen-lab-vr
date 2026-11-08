@@ -17,7 +17,7 @@ const PLACE = {
   // bottles pulled toward the centre (side by side behind the bath) so both read on desktop
   P_bottle3: ['A_bottle3', [-0.3, 0, -0.26]], P_bottle30: ['A_bottle30', [-0.2, 0, -0.08]], P_yeastJar: ['A_yeastJar'], P_spoon: ['A_spoon'],
   P_rod: ['A_rod'], P_stopperTube: ['A_stopperTube'], P_stopperSealed: ['A_stopperSealed'], P_timer: ['A_timer'],
-  P_goggles: ['A_yeastJar', [-0.2, 0, -0.1]],          // on the bench in front of the student (the wall rack was easy to miss)
+  P_goggles: ['A_goggleRack', [0.08, 0.02, 0]],        // on the rack, where the line sends the student (highlighted while needed)
   P_generatorTank: ['A_generator'], P_generatorGlass: ['A_generator'], P_generatorLiquid: ['A_generator'],
   P_generatorConsole: ['A_generator', [1.45, 0, 0.85], Math.PI / 2 + 0.5],   // beside the window, not in front of it
 };
@@ -140,7 +140,7 @@ export async function loadLab(engine, base = 'assets/') {
     pair.add(visor, rim, strap);
     G.add(pair);
     G.updateWorldMatrix(true, false);
-    pair.quaternion.copy(G.getWorldQuaternion(new THREE.Quaternion()).invert()).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.7, 0, 0)));   // leaning back on its strap, visor up toward the seated student
+    pair.quaternion.copy(G.getWorldQuaternion(new THREE.Quaternion()).invert()).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)));   // hanging upright on the rack, visor toward the room
     pair.position.set(0, 0.03 / G.getWorldScale(new THREE.Vector3()).y, 0);
     G.userData.glass = false;
   }
