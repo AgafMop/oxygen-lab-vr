@@ -5,6 +5,7 @@ import { playIntroCinema } from '../fx/introCinema.js';
 import { createStorm } from '../fx/storm.js';
 import { createFigure } from '../lab/crew.js';
 import { createScope, Abort } from './kit.js';
+import { consoleSpot } from './ch3_events.js';
 
 const OUTSIDE = new THREE.Vector3(0, -200, 0);
 
@@ -125,7 +126,8 @@ export async function run(ctx, scope) {
     audio.sfx('alarm'); audio.sfx('sparks');
     await ctx.loco.goTo('generator', { fade: false });
     const st = ctx.loco.stations.generator.pos;
-    azoulay.show(new THREE.Vector3(st.x - 1.45, 0, st.z - 0.95), st);
+    const spot = consoleSpot(ctx);
+    azoulay.show(spot.pos, st);
     commander.show(new THREE.Vector3(st.x - 1.5, 0, st.z + 1.0), st);
     ctx.introPhase = 'inside';
     await engine.nextFrame();

@@ -1,6 +1,9 @@
 // Robi: hover-bob, glowing face with expressions, arm gestures, gliding moves that end facing the student.
 import * as THREE from 'three';
 import { makeTween, ease } from '../core/tween.js';
+import { clearSpot, route } from './clearance.js';
+
+const R_BODY = 0.18, R_HS = [0.45, 0.8];
 
 export function createRobi(ctx) {
   const { engine, lab } = ctx;
@@ -55,6 +58,7 @@ export function createRobi(ctx) {
     }
   });
 
+  let moveId = 0;
   const wrap = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
   function turnTo(yaw, ms) {
     const y0 = root.rotation.y, d = wrap(yaw - y0);
@@ -69,23 +73,33 @@ export function createRobi(ctx) {
     /** Glide to a floor point: turn the short way, ease in and out with a slight lean, end facing the student. */
     async moveTo(target, { speed = 0.7 } = {}) {
       const to = target.isVector3 ? target.clone() : target.getWorldPosition(new THREE.Vector3());
-      const from = root.position.clone();
-      const dx = to.x - from.x, dz = to.z - from.z, dist = Math.hypot(dx, dz);
-      if (dist > 0.01) {
+      to.y = root.position.y;
+      const id = ++moveId;
+      // around furniture: the direct line when clear, else one detour corner; no clear route → hop (rare)
+      const legs = route(ctx, root.position.clone(), to, R_BODY, R_HS) || [to];
+      for (const leg of legs) {
+        if (id !== moveId) return;
+        const from = root.position.clone();
+        const dx = leg.x - from.x, dz = leg.z - from.z, dist = Math.hypot(dx, dz);
+        if (dist < 0.01) continue;
         await turnTo(Math.atan2(dx, dz), 350);
         await tween(Math.max(600, (dist / speed) * 1000), k => {
+          if (id !== moveId) return;
           root.position.x = from.x + dx * k; root.position.z = from.z + dz * k;
           root.rotation.x = 0.14 * Math.sin(k * Math.PI);          // lean into the move
         }, ease.inOut);
         root.rotation.x = 0;
       }
+      if (id !== moveId) return;
       const head = engine.headPosition(new THREE.Vector3());
       await turnTo(Math.atan2(head.x - root.position.x, head.z - root.position.z), 400);
     },
     /** Move next to a world point, facing the student: instant while hidden (fade/out of sight), a glide when seen. */
     placeNear(point, offset = new THREE.Vector3(0.6, 0, 0.2)) {
-      const to = new THREE.Vector3(point.x + offset.x, base.y, point.z + offset.z);
-      if (engine.fadeLevel() < 0.9 && root.visible && root.position.distanceTo(to) > 0.05) return robi.moveTo(to);
+      const to = clearSpot(ctx, new THREE.Vector3(point.x + offset.x, base.y, point.z + offset.z), R_BODY, R_HS);
+      const far = root.position.distanceTo(to) > 3.5;              // another area (corridor, other end of the lab): arrive with the student
+      if (!far && engine.fadeLevel() < 0.9 && root.visible && root.position.distanceTo(to) > 0.05) return robi.moveTo(to);
+      moveId++;
       root.position.copy(to);
       const head = engine.headPosition(new THREE.Vector3());
       root.lookAt(head.x, root.position.y, head.z);

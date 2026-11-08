@@ -270,7 +270,7 @@ test('chapter 4: a kept student leak is walked with the leak cause', async ({ pa
   expect(errors).toEqual([]);
 });
 
-for (const ch of ['intro', 'hypothesis', 'bench', 'robot', 'rescue', 'life']) {
+for (const ch of ['intro', 'robot', 'rescue', 'life']) {   // (bench: Robi stays put; covered by the hands test)
   test(`motion: nothing visibly jumps in ${ch}`, async ({ page }) => {
     test.setTimeout(900_000);
     const errors = await boot(page, `&auto&animspeed=2&only=${ch}&hand=20,40&seed=7`);

@@ -2,6 +2,9 @@
 import * as THREE from 'three';
 import { makeTween, ease } from '../core/tween.js';
 import { hologramMaterial } from './looks.js';
+import { clearSpot } from './clearance.js';
+
+const C_BODY = 0.2, C_HS = [0.35, 0.8, 1.25];
 
 export function createFigure(ctx, { hologram = false, tint = null, female = false } = {}) {
   const { engine, lab } = ctx;
@@ -46,10 +49,11 @@ export function createFigure(ctx, { hologram = false, tint = null, female = fals
   ctx.track?.(root, hologram ? 'commander' : 'azoulay'); if (!hologram) ctx.body?.(root, female ? 'azoulay' : 'crew', 0.2);
   return {
     root, parts: N,
-    show(pos, lookAt) { root.position.copy(pos); if (lookAt) faceTo(lookAt); root.visible = true; },
+    show(pos, lookAt) { root.position.copy(hologram || pos.y > 0.3 ? pos : clearSpot(ctx, pos, C_BODY, C_HS)); if (lookAt) faceTo(lookAt); root.visible = true; },
     hide() { root.visible = false; },
     faceTo,
     async walkTo(to, { speed = 0.9, lookAt } = {}) {
+      to = clearSpot(ctx, to, C_BODY, C_HS);
       const from = root.position.clone(); const d = from.distanceTo(to);
       await turnTo(to, 350);
       await tween(Math.max(500, (d / speed) * 1000), (k, raw) => {
