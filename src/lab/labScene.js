@@ -134,13 +134,14 @@ export async function loadLab(engine, base = 'assets/') {
       glassify(new THREE.MeshStandardMaterial({ color: 0x7fdcd4, transparent: true, opacity: 0.6, roughness: 0.05, envMapIntensity: 1.6, side: THREE.DoubleSide, depthWrite: false }), { rim: 0.7 }));
     visor.scale.set(0.085, 0.07, 0.05);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.06, 8, 48), new THREE.MeshStandardMaterial({ color: 0x23282e, roughness: 0.5 }));
-    rim.scale.set(0.084, 0.032, 1); rim.position.z = 0.0;
+    rim.scale.set(0.084, 0.046, 1); rim.position.z = 0.0;
     const strap = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.013, 8, 48, Math.PI), new THREE.MeshStandardMaterial({ color: 0xe8643a, roughness: 0.6 }));
-    strap.rotation.x = -Math.PI / 2;                 // half loop behind the visor
+    strap.position.z = -0.01;                        // the strap arches up over the hook
     pair.add(visor, rim, strap);
     G.add(pair);
     G.updateWorldMatrix(true, false);
-    pair.quaternion.copy(G.getWorldQuaternion(new THREE.Quaternion()).invert()).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)));   // hanging upright on the rack, visor toward the room
+    pair.quaternion.copy(G.getWorldQuaternion(new THREE.Quaternion()).invert()).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0)));   // hanging upright on the rack (wall faces +x), visor toward the room
+    pair.scale.setScalar(1.3 / G.getWorldScale(new THREE.Vector3()).x);
     pair.position.set(0, 0.03 / G.getWorldScale(new THREE.Vector3()).y, 0);
     G.userData.glass = false;
   }

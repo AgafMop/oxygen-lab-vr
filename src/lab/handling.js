@@ -40,7 +40,7 @@ export function createHandling(ctx, app, { onAction }) {
   const mouth = () => app.flaskMouth();
   const horiz = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
   const upOf = o => UP.clone().applyQuaternion(o.getWorldQuaternion(new THREE.Quaternion()));
-  const targetOf = t => t.kind === 'spoon' ? (t.loaded ? mouth() : wp(app.jar).add(new THREE.Vector3(0, 0.08, 0)))
+  const targetOf = t => t.kind === 'spoon' ? (t.loaded ? mouth() : wp(app.jar).add(new THREE.Vector3(0, 0.24, 0)))
     : t.kind === 'cylinder' ? wp(app.props.trough).add(new THREE.Vector3(0, 0.06, 0)) : mouth();
 
   // ---- holders ----
@@ -104,7 +104,7 @@ export function createHandling(ctx, app, { onAction }) {
       if (!r?.ok) await app.goHome(t.obj);
       return;
     }
-    if (t.kind === 'cylinder' && horiz(pos, wp(app.props.trough)) < 0.16) {
+    if (t.kind === 'cylinder' && horiz(pos, wp(app.props.trough)) < 0.26) {
       await release(true);
       await act({ type: 'fillCylinder' });
       return;
@@ -157,8 +157,8 @@ export function createHandling(ctx, app, { onAction }) {
     }
 
     if (t.kind === 'spoon') {
-      if (!t.loaded && near(pos, wp(app.jar).add(new THREE.Vector3(0, 0.06, 0)), 0.13)) { t.loaded = true; heap.visible = true; audio.sfx('click'); }
-      if (t.loaded && horiz(pos, m) < 0.1 && pos.y < m.y + 0.16) {
+      if (!t.loaded && horiz(pos, wp(app.jar)) < 0.14 && pos.y < wp(app.jar).y + 0.34) { t.loaded = true; heap.visible = true; audio.sfx('click'); }
+      if (t.loaded && horiz(pos, m) < 0.14 && pos.y < m.y + 0.2) {
         t.loaded = false; heap.visible = false;
         app.dropYeast();
         act({ type: 'yeast' });
@@ -178,7 +178,7 @@ export function createHandling(ctx, app, { onAction }) {
     }
 
     if (t.kind === 'stopper' && holder !== dragHolder && near(pos, m, 0.04)) dropAt();      // XR: plugs on contact
-    if (t.kind === 'cylinder' && holder !== dragHolder && horiz(pos, wp(app.props.trough)) < 0.12 && pos.y < wp(app.props.trough).y + 0.1) dropAt();
+    if (t.kind === 'cylinder' && holder !== dragHolder && horiz(pos, wp(app.props.trough)) < 0.2 && pos.y < wp(app.props.trough).y + 0.22) dropAt();
   });
 
   // ---- test driver: a virtual hand that moves tools along tweened paths (same code paths as a real hand) ----
