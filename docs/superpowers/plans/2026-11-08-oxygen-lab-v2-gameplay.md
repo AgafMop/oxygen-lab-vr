@@ -148,3 +148,39 @@
 - [ ] **Step 2: Fix** placements found (board `dist/height/side`, subtitle offset in XR).
 - [ ] **Step 3: Run** `npm test` and the e2e suite in two halves with one worker (memory) — Expected: all PASS.
 - [ ] **Step 4: Commit** — `git commit -m "fix: boards no longer hidden behind props"`.
+
+---
+
+## Amendment (user change, 2026-11-08 mid-run) — hand part 2 × 3, built-in error, why-three pop-up
+
+Spec §3/§4 were rewritten (commit c237c38). Tasks 1–7 stand; Tasks 8–10 change chapters 2–4 on top of them.
+
+### Task 8: Model + chapter 2 — two temperatures × three repeats, built-in leak, why-three card, harder reading
+
+**Files:** `src/game/config.js`, `src/game/state.js`, `src/chapters/ch2_bench.js`, `src/game/script.js`, `tests/state.test.js`, `tests/e2e/play.spec.js`
+
+**Interfaces:**
+- Produces (config): `HAND_TEMP_COUNT = 2`, `HAND_REPEATS = 3` (replace `HAND_TRIALS`).
+- Produces (state): `handTemps()` unchanged (temps with ≥ 1 valid student trial); `handDone() → boolean` — `HAND_TEMP_COUNT` temps each with `HAND_REPEATS` valid student trials.
+- Produces (ch2): built-in error trial gets `{ meta: 'leak', leak: true }` with volume from `sampleTrial(T, rng, { leak: true })`; decision after the first triple — disqualify adds a 4th repeat.
+
+- [ ] **Step 1: Failing tests** — state: `handDone needs two temperatures with three valid student trials each` (2×2 → false, 2×3 → true, 3 valid + 1 invalid at one temp + 3 at another → true). e2e: `chapter 2 auto` → `&auto&only=bench&hand=20,40` gives student valid trials 3 at 20 and 3 at 40 (+1 if the auto driver disqualifies the leak: auto chooses "לפסול" → 20 has 4 trials, one `valid:false, reason:'leak'`), O₂ = 360 − 15 × student trials; `boil trap` and `redo` adapted to 2×3; new `why-three card appears after each triple` (`window.__ctx.why3Shown === 2`).
+- [ ] **Step 2: Run** — Expected: FAIL.
+- [ ] **Step 3: Implement** — loop over 2 temperatures; the chooser opens only before repeat 1 of each temperature; hint level from completed-trial count (0 full, 1–2 highlight, ≥3 none); the leak repeat (index 1 or 2 of temperature 1, `rng`) runs `app.runTrial` plus a subtle bubble leak at the tube joint (reuse `leakFx` from `ch3_events.js`, smaller); after each triple a `why3` board: three dots + mean + the spec title (fitText), outlier ringed; at temperature 1 `decide(ctx, scope, ['לפסול ולמדוד שוב', 'להשאיר'])` → `game.disqualify` + `markDecision(true)` or keep + `markDecision(false)`; reading options for trial index ≥ 3: `v ± 1.5`, `v ± 3`.
+- [ ] **Step 4: Script** — `c2_intro: 'בוחרים שתי טמפרטורות, שלוש מדידות בכל אחת. בראשונה אני מסביר הכל.'`, `c2_alone: 'עכשיו אתם כבר מומחים. לבד!'`, `c2_nextTemp: 'עכשיו טמפרטורה שנייה. בחרו טמפרטורה אחרת.'`, `c2_why3: 'מדידה אחת יכולה לטעות. שלוש מדידות חושפות טעות, והממוצע קרוב לאמת.'`, `c2_why3_err: 'אחת המדידות נמוכה מאוד! מה עושים איתה?'`, `c2_three: 'שתי נקודות... איפה השיא? צריך עוד נתונים.'`.
+- [ ] **Step 5: Run** unit + chapter-2 e2e — Expected: PASS. **Commit.**
+
+### Task 9: Chapters 3–4 — no completions needed, student outlier by cause
+
+**Files:** `src/chapters/ch3_robot.js`, `src/chapters/ch4_graph.js`, `src/main.js` (`seedFor`), `src/game/script.js`, `tests/e2e/play.spec.js`
+
+- [ ] **Step 1: Failing e2e** — `chapter 3 auto` (seed hand 20/40 × 3): plan = hand ∪ `[10, 30, 50]`, every plan temperature 3 valid, no `fill` trials, O₂ = 270 − 15 × robot trials; `student outlier`: `&auto&only=robot&handLeak=20` (seeded kept leak at 20) → no robot `unmixed`; `chapter 4 auto` with `&handLeak=20` → the walked outlier is at 20 and the right cause is 'דליפה' (`s.flags.decisionWrong` falsy, 20's leak trial invalid).
+- [ ] **Step 2: Run** — Expected: FAIL.
+- [ ] **Step 3: Implement** — ch3: `studentOut` = any valid student trial flagged by `findOutliers` on its temperature's valid values; completions only if a hand temp has < 3 valid; `c2_why3` reminder replaced by `c3_like_you: 'שלוש חזרות בכל טמפרטורה, בדיוק כמו שעשיתם.'`. ch4: walk valid outliers with `meta` `unmixed` or `leak`; right cause per meta (`leak` → 'דליפה'). seedFor: hand 20 & 40 × 3 (`?handLeak=T` → one kept leak trial, `?handUnmixed=T` → one unmixed); later chapters plan `[10, 20, 30, 40, 50]` with data at 10/30/50.
+- [ ] **Step 4: Run** chapter 3/4/resume e2e — Expected: PASS. **Commit.**
+
+### Task 10: Voices, re-tour, full verification
+
+- [ ] **Step 1:** `node tools/voices.mjs --force c2_intro,c2_alone,c2_why3,c2_three --only c2_intro,c2_alone,c2_nextTemp,c2_why3,c2_why3_err,c2_three,c3_like_you` — Expected: 7 lines, Scribe similarity ≥ 0.8.
+- [ ] **Step 2:** `node .superpowers/tour.mjs bench robot graph` — inspect; audit lists empty.
+- [ ] **Step 3:** unit suite + e2e in small groups (one worker) — Expected: all PASS. **Commit.**
