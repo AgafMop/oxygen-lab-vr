@@ -26,8 +26,9 @@ export function gauss(rng) {
 
 /** One measured volume (ml, 0.5 steps, 0..50). */
 export function sampleTrial(T, rng, { mixed = true, spoons = 1, leak = false } = {}) {
-  let v = trueRate(T) * (1 + 0.06 * gauss(rng));
-  if (!mixed) v *= 0.7;
+  const rate = trueRate(T);
+  let v = rate * (1 + 0.06 * gauss(rng));
+  if (!mixed) v = Math.min(0.6 * v, rate - 4);     // yeast left in a clump: clearly less gas
   if (leak) v *= 0.55;
   v *= spoons;
   v = Math.min(50, Math.max(0, v));
@@ -75,4 +76,21 @@ export function robotValues(T, rng, outI = null) {
   }
   const v = Math.round(trueRate(T) * 2) / 2;
   return { vals: [v, v, v], outIdx: null };
+}
+
+/** Two robot readings at T that complete a student's single reading `studentVal`.
+ *  unmixed → the student's reading becomes the only outlier whenever that is possible (studentOut: true);
+ *  otherwise no reading is flagged. Rejection-sampled from the normal model. */
+export function completeValues(T, rng, studentVal, unmixed) {
+  const ok = vals => {
+    const f = findOutliers({ [T]: [studentVal, ...vals] });
+    return unmixed ? f.length === 1 && f[0].index === 0 : f.length === 0;
+  };
+  for (let tries = 0; tries < 40; tries++) {
+    const vals = [sampleTrial(T, rng), sampleTrial(T, rng)];
+    if (ok(vals)) return { vals, studentOut: unmixed };
+  }
+  const r = Math.round(trueRate(T) * 2) / 2;
+  const vals = unmixed ? [r, r] : [studentVal, studentVal];
+  return { vals, studentOut: unmixed && ok(vals) };
 }

@@ -1,5 +1,5 @@
 // Game state: oxygen, trials, score, decisions, checkpoints, events.
-import { O2_START, TRIAL_COST, PENALTY, MISTAKE_SCORE, PLAN_MIN, PLAN_MAX, SAVE_KEY, FIRST_TEMP } from './config.js';
+import { O2_START, TRIAL_COST, PENALTY, MISTAKE_SCORE, ROBOT_MIN, ROBOT_MAX, SAVE_KEY } from './config.js';
 
 const RESERVE_O2 = 240;      // emergency tanks after a second game over in the same chapter
 const GAMEOVER_SCORE = 100;
@@ -44,10 +44,14 @@ export function createGame({ seed, storage }) {
 
     award(badge) { if (!game.s.badges.includes(badge)) game.s.badges.push(badge); },
 
-    addTrial(T, trial) {
+    addTrial(T, trial, { free = false } = {}) {
       (game.s.trials[T] ||= []).push({ valid: true, ...trial });
       emit('trial', { T, index: game.s.trials[T].length - 1 });
-      game.spend(TRIAL_COST);
+      if (!free) game.spend(TRIAL_COST);
+    },
+    /** Temperatures the student measured by hand (a valid student trial), ascending. */
+    handTemps() {
+      return Object.entries(game.s.trials).filter(([, l]) => l.some(t => t.by === 'student' && t.valid)).map(([T]) => Number(T)).sort((a, b) => a - b);
     },
 
     disqualify(T, i, reason) {
@@ -87,12 +91,13 @@ export function createGame({ seed, storage }) {
       return true;
     },
 
-    planFeedback(plan) {
-      if (plan.length < PLAN_MIN) return { ok: false, msg: 'few' };
-      if (plan.length > PLAN_MAX) return { ok: false, msg: 'many' };
-      // both sides of body temperature must be explored (the locked 37 counts for neither)
-      if (!plan.some(t => t <= 35) || !plan.some(t => t >= 45)) return { ok: false, msg: 'oneSided' };
-      const cost = plan.filter(t => t !== FIRST_TEMP).length * 3 * TRIAL_COST + 2 * TRIAL_COST;   // + a margin for redoing a spoiled trial
+    /** Feedback on the robot's extra temperatures; coverage counts the hand temperatures too, cost only the robot's. */
+    planFeedback(robotTemps) {
+      if (robotTemps.length < ROBOT_MIN) return { ok: false, msg: 'few' };
+      if (robotTemps.length > ROBOT_MAX) return { ok: false, msg: 'many' };
+      const all = [...robotTemps, ...game.handTemps()];
+      if (!all.some(t => t <= 35) || !all.some(t => t >= 45)) return { ok: false, msg: 'oneSided' };
+      const cost = robotTemps.length * 3 * TRIAL_COST + 2 * TRIAL_COST;   // + a margin for redoing a spoiled trial
       if (cost >= game.s.o2) return { ok: false, msg: 'budget', cost };
       return { ok: true, msg: null, cost };
     },

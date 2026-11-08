@@ -65,13 +65,35 @@ test('a save survives into a new game on the same storage', () => {
   assert.equal(g2.s.hypothesis, 'peak');
 });
 
-test('planFeedback', () => {
+const withHand = (g, temps) => { for (const T of temps) g.addTrial(T, { volume: 10, by: 'student', read: 'student' }); return g; };
+
+test('handTemps lists valid student temperatures', () => {
   const g = newGame();
-  assert.equal(g.planFeedback([10, 20, 30, 35, 15]).msg, 'oneSided');
-  assert.equal(g.planFeedback([45, 50, 55, 60, 65]).msg, 'oneSided');
-  assert.equal(g.planFeedback([10, 20]).msg, 'few');
-  assert.equal(g.planFeedback([10, 25, 37, 45, 60]).ok, true);
-  assert.equal(g.planFeedback([5, 10, 20, 30, 37, 45, 55, 65]).msg, 'many');
+  g.addTrial(20, { volume: 10, by: 'student' });
+  g.addTrial(40, { volume: 10, by: 'student', valid: false, reason: 'cylinder' });
+  g.addTrial(60, { volume: 3, by: 'student' });
+  g.addTrial(30, { volume: 20, by: 'robot' });
+  assert.deepEqual(g.handTemps(), [20, 60]);
+});
+
+test('planFeedback counts coverage with hand temps, cost with robot temps', () => {
+  const g = withHand(newGame(), [20, 40, 60]);           // o2 now 315
+  assert.equal(g.planFeedback([10, 50]).msg, 'few');
+  assert.equal(g.planFeedback([5, 10, 15, 25, 30, 35]).msg, 'many');
+  const f = g.planFeedback([10, 30, 50]);
+  assert.equal(f.ok, true); assert.equal(f.cost, 165);
+  g.s.o2 = 150;
+  assert.equal(g.planFeedback([10, 30, 50]).msg, 'budget');
+  const h = withHand(newGame(), [50, 60, 70]);
+  assert.equal(h.planFeedback([45, 55, 65]).msg, 'oneSided');
+  assert.equal(h.planFeedback([10, 45, 55]).ok, true);
+});
+
+test('free trials cost no oxygen', () => {
+  const g = newGame();
+  g.addTrial(20, { volume: 5, by: 'robot' }, { free: true });
+  assert.equal(g.s.o2, 360);
+  assert.equal(g.s.trials[20].length, 1);
 });
 
 test('a perfect run keeps oxygen and earns three stars', () => {
@@ -96,20 +118,14 @@ test('a wrong decision costs the third star', () => {
   assert.equal(g.finalScore().stars, 2);
 });
 
-test('review F2: a one-sided plan is caught even with the locked 37', () => {
-  const g = newGame();
-  assert.equal(g.planFeedback([5, 10, 15, 20, 37]).msg, 'oneSided');
-  assert.equal(g.planFeedback([45, 50, 55, 60, 37]).msg, 'oneSided');
-  assert.equal(g.planFeedback([20, 30, 37, 45, 55]).ok, true);
-});
-
 test('review F4: a plan that costs more oxygen than is left is refused', () => {
-  const g = newGame();
-  g.s.o2 = 150;                       // 6 robot temps × 3 × 15 = 270 > 150
-  assert.equal(g.planFeedback([10, 20, 30, 37, 45, 55, 65]).msg, 'budget');
-  assert.equal(g.planFeedback([20, 30, 37, 45, 55]).msg, 'budget');   // 4×45 = 180 > 150
+  const g = withHand(newGame(), [20, 40, 60]);
+  g.s.o2 = 150;                       // 3 robot temps × 3 × 15 + 30 = 165 > 150
+  assert.equal(g.planFeedback([10, 30, 50]).msg, 'budget');
   g.s.o2 = 220;
-  assert.equal(g.planFeedback([20, 30, 37, 45, 55]).ok, true);
+  assert.equal(g.planFeedback([10, 30, 50]).ok, true);
+  g.s.o2 = 210;
+  assert.equal(g.planFeedback([10, 30, 45, 50]).msg, 'budget');   // 4×45 + 30 = 210 ≥ 210
 });
 
 test('review F4: a second game over in the same chapter opens the reserve tanks', () => {
