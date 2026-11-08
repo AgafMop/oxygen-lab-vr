@@ -126,12 +126,17 @@ function seedFor(id) {
   if (order > CHAPTERS.indexOf('intro')) { game.s.flags.introDone = true; ctx.mood.set({ light: 0.85, gen: 0.15 }); }
   if (order > CHAPTERS.indexOf('bench')) {
     game.s.hypothesis ??= 'peak'; game.s.flags.goggles = true;
-    for (const v of [34, 35.5, 33]) game.addTrial(37, { volume: v, by: 'student', read: 'student', mixed: true });
+    const unmixedAt = Number(params.get('handUnmixed')) || null;      // ?handUnmixed=40: the student forgot to stir there
+    for (const [T, v] of [[20, 11], [40, 40.5], [60, 3.5]]) {
+      const um = T === unmixedAt;
+      game.addTrial(T, { volume: um ? Math.round(v * 0.6 * 2) / 2 : v, by: 'student', read: 'student', mixed: !um, ...(um ? { meta: 'unmixed' } : {}) });
+    }
   }
   if (order > CHAPTERS.indexOf('robot')) {
-    const data = { 20: [12.5, 13, 12], 30: [21.5, 22.5, 22], 45: [44, 45.5, 31], 55: [11, 10, 11.5], 65: [0.5, 0.5, 1] };
-    game.s.plan = [20, 30, 37, 45, 55, 65];
-    for (const [T, vs] of Object.entries(data)) vs.forEach((v, i) => game.addTrial(Number(T), { volume: v, by: 'robot', read: 'auto', ...(T === '45' && i === 2 ? { meta: 'unmixed', mixed: false } : {}) }));
+    // robot completions at the hand temperatures + three new temperatures; one unmixed robot reading at 40
+    const data = { 10: [5.5, 5, 6], 20: [10.5, 11.5], 30: [22, 21.5, 22.5], 40: [41, 25], 50: [31, 30, 32.5], 60: [4, 4.5] };
+    game.s.plan = [10, 20, 30, 40, 50, 60];
+    for (const [T, vs] of Object.entries(data)) vs.forEach((v, i) => game.addTrial(Number(T), { volume: v, by: 'robot', read: 'auto', ...(T === '40' && i === 1 ? { meta: 'unmixed', mixed: false } : {}) }));
   }
 }
 

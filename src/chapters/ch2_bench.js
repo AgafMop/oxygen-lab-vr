@@ -1,12 +1,12 @@
-// Chapter 2: safety + three hands-on trials at 37 °C with teaching failures.
+// Chapter 2: safety + three hands-on trials at temperatures the student picks, with teaching failures.
 import * as THREE from 'three';
 import { createProcedure } from '../game/procedure.js';
-import { makeRng, mean } from '../game/model.js';
-import { FIRST_TEMP } from '../game/config.js';
-import { boardAtStation, row } from './kit.js';
+import { makeRng } from '../game/model.js';
+import { HAND_TEMPS, HAND_TRIALS } from '../game/config.js';
+import { boardAtStation } from './kit.js';
+import { createGraphWall } from '../ui/graphWall.js';
 
-const STEP_LINE = { dial: 'c2_dial', fillCylinder: 'c2_fill', pour: 'c2_pour', yeast: 'c2_yeast', stir: 'c2_stir', stopper: 'c2_stopper', timer: 'c2_timer', read: 'c2_read' };
-const TEMPS = [20, 30, 37, 45, 60, 90];
+const STEP_LINE = { fillCylinder: 'c2_fill', pour: 'c2_pour', yeast: 'c2_yeast', stir: 'c2_stir', stopper: 'c2_stopper', timer: 'c2_timer', read: 'c2_read' };
 
 export async function run(ctx, scope) {
   const { ui, loco, robi, game, audio, app, lab, input } = ctx;
@@ -18,12 +18,14 @@ export async function run(ctx, scope) {
   app.reset(); app.clearFx();
   P.P_goggles.visible = !goggles;
 
+  ctx.graph ??= createGraphWall(ctx, lab.anchors.A_graphWall);   // each hand trial shows up on the wall graph
+  ctx.graph.update();
   if (loco.current !== 'bench') await loco.goTo('bench');
   robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45));
   robi.face('happy');
 
   // ---- goggles (optional — skipping them is a teachable mistake) ----
-  let proc = null, busy = false, readUI = null, dialUI = null;
+  let proc = null, busy = false, readUI = null;
   const takeGoggles = async () => {
     if (goggles) return;
     goggles = true; game.s.flags.goggles = true; proc?.act({ type: 'goggles' });
@@ -43,7 +45,6 @@ export async function run(ctx, scope) {
 
   // ---- prop → action mapping ----
   const MAP = [
-    [P.P_bath, { type: 'dialUI' }], [P.P_thermometer, { type: 'dialUI' }],
     [P.P_cylinder, { type: 'fillCylinder' }], [P.P_trough, { type: 'fillCylinder' }],
     [P.P_bottle3, { type: 'pour', bottle: '3' }], [P.P_bottle30, { type: 'pour', bottle: '30' }],
     [P.P_yeastJar, { type: 'yeast' }], [P.P_spoon, { type: 'yeast' }], [P.P_rod, { type: 'stir' }],
@@ -72,7 +73,6 @@ export async function run(ctx, scope) {
 
   async function doAction(a) {
     if (busy || !proc || proc.step === 'done') return;
-    if (a.type === 'dialUI') return openDial();
     busy = true; app.hint(null);
     try {
       const r = proc.act(a);
@@ -83,10 +83,7 @@ export async function run(ctx, scope) {
         audio.sfx('click');
         await ANIM[a.type]?.(a);
         if (a.type === 'timer') { await app.runTrial(proc.volume, 6); openReading(); }
-      } else {
-        audio.sfx('no');
-        if (a.type === 'dial') await scope.say('c2_wrongTemp');
-      }
+      } else audio.sfx('no');
     } finally { busy = false; }
     afterStep();
   }
@@ -102,23 +99,41 @@ export async function run(ctx, scope) {
   const propAt = anchor => ({ A_bath: P.P_bath, A_cylinder: P.P_cylinder, A_bottle3: P.P_bottle3, A_yeastJar: P.P_yeastJar, A_rod: P.P_rod,
     A_stopperTube: P.P_stopperTube, A_timer: P.P_timer, A_goggleRack: P.P_goggles })[anchor] || null;
 
-  // ---- dial chooser ----
-  function openDial() {
-    if (dialUI || busy || proc.step !== 'dial') return;
-    const b = boardAtStation(ctx, scope, 'bench', { dist: 0.55, height: 1.05, side: 0.32 });
-    const chips = TEMPS.map(t => ui.card({ w: 0.075, h: 0.06, label: `${t}°`, onSelect: () => chooseTemp(t) }));
-    chips.forEach(c => scope.add(c));
-    row(b, chips, { gap: 0.012 });
-    dialUI = { b, chips };
-  }
-  async function chooseTemp(t) {
-    if (!dialUI) return;
-    dialUI.chips.forEach(c => c.dispose()); dialUI = null;
-    if (t >= 90 || t === FIRST_TEMP) {
-      if (t === FIRST_TEMP) { busy = true; try { await app.setBath(t, 2500); } finally { busy = false; } }
-      return doAction({ type: 'dial', temp: t });
-    }
-    audio.sfx('no'); await scope.say('c2_wrongTemp');
+  // ---- temperature chooser: one chip row; used temperatures locked, 90° boils ----
+  const handList = (ctx.params.get('hand') || '20,40,60').split(',').map(Number);
+  const boiled = new Set();
+  let failUsed = false;
+  function chooseTemperature(level) {
+    const used = new Set(game.handTemps());
+    return new Promise(resolve => {
+      const b = boardAtStation(ctx, scope, 'bench', { dist: 0.55, height: 1.05, side: 0.32 });
+      let busyPick = false;
+      const chips = HAND_TEMPS.map(t => {
+        const c = scope.add(ui.card({ w: 0.075, h: 0.065, label: used.has(t) ? `${t}° ✋` : `${t}°`, name: 'tempChip', onSelect: async cc => {
+          if (busyPick || used.has(t) || boiled.has(t)) return;
+          if (t >= 90) {
+            busyPick = true; boiled.add(t); cc.setState('off');
+            const r = createProcedure({ game, rng, requiredTemp: t }).act({ type: 'dial', temp: t });
+            ctx.pendingFx = playFail(r.fail, {}); await ctx.pendingFx; ctx.pendingFx = null; app.clearFx();
+            busyPick = false; return;
+          }
+          audio.sfx('click'); chips.forEach(x => x.dispose()); resolve(t);
+        } }));
+        if (used.has(t)) c.setState('right'); else if (boiled.has(t)) c.setState('off');
+        c.mesh.position.set(-(HAND_TEMPS.length / 2 - HAND_TEMPS.indexOf(t) - 0.5) * 0.085, 0, 0.01);   // cold on the left
+        b.add(c.mesh);
+        return c;
+      });
+      if (level === 'full') { robi.gesture('point'); audio.say('c2_dial'); }
+      if (ctx.auto) (async () => {
+        if (autofail === 'boil' && !boiled.has(90)) {
+          await scope.wait(40); input.select(chips[HAND_TEMPS.indexOf(90)].mesh);
+          await scope.wait(60); while (busyPick) await scope.wait(50);
+        }
+        const t = handList.find(x => !used.has(x));
+        input.select(chips[HAND_TEMPS.indexOf(t)].mesh);
+      })().catch(() => {});
+    });
   }
 
   // ---- reading the cylinder: magnified meniscus + three values ----
@@ -144,11 +159,10 @@ export async function run(ctx, scope) {
   }
 
   // ---- auto driver (tests) ----
-  async function autoPlay(trialIdx) {
-    const fail = trialIdx === 0 ? autofail : null;
+  async function autoPlay() {
+    const fail = !failUsed && autofail !== 'boil' ? autofail : null;
+    failUsed = true;
     const step = async a => { await doAction(a); await scope.wait(30); };
-    if (fail === 'boil') { openDial(); await chooseTemp(90); }
-    if (proc.step === 'dial') { openDial(); await chooseTemp(37); }
     if (fail !== 'cylinderNotFilled') await step({ type: 'fillCylinder' });
     if (fail === 'acidMelt') { await step({ type: 'pour', bottle: '30' }); return; }
     await step({ type: 'pour', bottle: '3' });
@@ -162,36 +176,48 @@ export async function run(ctx, scope) {
     if (readUI) { const i = readUI.opts.indexOf(readUI.v); input.select(readUI.cards[i].mesh); }
   }
 
-  // ---- three valid trials ----
-  const valid = () => (game.s.trials[FIRST_TEMP] || []).filter(t => t.valid).length;
+  // ---- three temperatures, one valid trial each (a failed trial is redone at the same temperature) ----
   const announced = new Set();
-  while (valid() < 3) {
-    const idx = valid();
+  while (game.handTemps().length < HAND_TRIALS) {
+    const idx = game.handTemps().length;
     if (!announced.has(idx)) { announced.add(idx); if (idx === 1) await scope.say('c2_again'); if (idx === 2) await scope.say('c2_alone'); }
-    app.emptyFlask(); app.setGas(50);
-    proc = createProcedure({ game, rng, trialIndex: idx, goggles, requiredTemp: FIRST_TEMP });
-    const done = new Promise(res => { resolveTrial = res; });
-    afterStep();
-    if (ctx.auto) autoPlay(idx).catch(() => {});
-    const d = await scope.guard(done);
-    app.hint(null);
-    if (d.valid && valid() === 1) { robi.face('wow'); await scope.say('c2_warm'); robi.face('happy'); }
-    await scope.wait(ctx.auto ? 50 : 600);
+    const level = ['full', 'highlight', 'none'][Math.min(idx, 2)];
+    const T = await scope.guard(chooseTemperature(level));
+    busy = true; try { await scope.guard(app.setBath(T, ctx.auto ? 600 : 2500)); } finally { busy = false; }
+    let valid = false;
+    while (!valid) {
+      app.emptyFlask(); app.setGas(50);
+      proc = createProcedure({ game, rng, trialIndex: idx, goggles, requiredTemp: T, bathReady: true });
+      const done = new Promise(res => { resolveTrial = res; });
+      afterStep();
+      if (ctx.auto) autoPlay().catch(() => {});
+      const d = await scope.guard(done);
+      app.hint(null);
+      valid = d.valid;
+      if (valid && idx === 0) { robi.face('wow'); await scope.say('c2_warm'); robi.face('happy'); }
+      await scope.wait(ctx.auto ? 50 : 600);
+    }
   }
 
-  // ---- mini chart: three dots and their mean ----
-  const vols = game.s.trials[FIRST_TEMP].filter(t => t.valid).map(t => t.volume);
-  const m = mean(vols);
+  // ---- mini chart: the student's three points (temperature grows to the right) ----
+  const pts = game.handTemps().map(T => ({ T, v: game.s.trials[T].find(t => t.by === 'student' && t.valid).volume }));
   const b = boardAtStation(ctx, scope, 'bench', { dist: 0.75, height: 1.3 });
-  const chart = scope.add(ui.panel({ w: 0.42, h: 0.28, name: 'miniChart', draw(g, W, H) {
+  const chart = scope.add(ui.panel({ w: 0.46, h: 0.3, name: 'miniChart', draw(g, W, H) {
     ui.rr(g, 4, 4, W - 8, H - 8, 26); g.fillStyle = ui.C.bg; g.fill();
     g.direction = 'rtl'; g.fillStyle = ui.C.ink;
-    ui.fitText(g, `שלוש חזרות ב-37° · ממוצע ${m.toFixed(1)} מ״ל`, { x: W * 0.05, y: H * 0.04, w: W * 0.9, h: H * 0.16, maxPx: H * 0.09, minPx: ui.minPx(900), font: ui.FONT }); g.textAlign = 'center';
-    const lo = Math.min(...vols) - 4, hi = Math.max(...vols) + 4, Y = v => H * 0.88 - (v - lo) / (hi - lo) * H * 0.62;
-    g.strokeStyle = ui.C.mars; g.lineWidth = 6; g.setLineDash([16, 10]); g.beginPath(); g.moveTo(W * 0.12, Y(m)); g.lineTo(W * 0.88, Y(m)); g.stroke(); g.setLineDash([]);
-    vols.forEach((v, i) => { g.fillStyle = ui.C.oxy; g.beginPath(); g.arc(W * (0.3 + i * 0.2), Y(v), 16, 0, 7); g.fill(); g.fillStyle = ui.C.ink; g.font = `600 ${H * 0.07}px ${ui.FONT}`; g.fillText(`${v}`, W * (0.3 + i * 0.2), Y(v) - 26); });
+    ui.fitText(g, 'שלוש הנקודות שלכם', { x: W * 0.05, y: H * 0.03, w: W * 0.9, h: H * 0.15, maxPx: H * 0.1, minPx: ui.minPx(900), font: ui.FONT });
+    const x0 = W * 0.12, x1 = W * 0.92, y0 = H * 0.8, y1 = H * 0.24, X = T => x0 + (x1 - x0) * T / 70, Y = v => y0 - (y0 - y1) * v / 50;
+    g.strokeStyle = '#4a5d7a'; g.lineWidth = 4; g.beginPath(); g.moveTo(x0, y1); g.lineTo(x0, y0); g.lineTo(x1, y0); g.stroke();
+    g.direction = 'ltr'; g.fillStyle = ui.C.muted; g.font = `600 ${ui.minPx(900) + 2}px ${ui.FONT}`; g.textAlign = 'center'; g.textBaseline = 'top';
+    for (let T = 0; T <= 70; T += 10) g.fillText(String(T), X(T), y0 + 8);
+    pts.forEach(({ T, v }) => {
+      g.fillStyle = ui.C.oxy; g.beginPath(); g.arc(X(T), Y(v), 14, 0, 7); g.fill();
+      g.fillStyle = ui.C.ink; g.textBaseline = 'bottom'; g.fillText(String(v), X(T), Y(v) - 18);
+    });
   } }));
   b.add(chart.mesh);
-  await scope.say('c2_why3');
+  robi.face('think');
+  await scope.say('c2_three');
+  robi.face('happy');
   await scope.wait(ctx.auto ? 50 : 1500);
 }

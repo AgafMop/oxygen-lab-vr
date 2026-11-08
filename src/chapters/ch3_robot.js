@@ -1,13 +1,14 @@
-// Chapter 3: plan the temperatures, Robi runs 3 repeats per temperature, the student reads some results.
+// Chapter 3: the student picks the robot's extra temperatures (not the ones done by hand); Robi completes the
+// student's temperatures to three repeats, then runs 3 repeats per new temperature; the student reads some results.
 import * as THREE from 'three';
-import { makeRng, trueRate, robotValues, sampleTrial } from '../game/model.js';
+import { makeRng, trueRate, robotValues, sampleTrial, completeValues } from '../game/model.js';
 import { decide, azoulayScene, leakFx, stormHits } from './ch3_events.js';
-import { SLIDER, FIRST_TEMP, PLAN_MIN, TRIAL_COST } from '../game/config.js';
+import { SLIDER, ROBOT_MIN, TRIAL_COST } from '../game/config.js';
 import { createApparatus } from '../lab/apparatus.js';
 import { createGraphWall } from '../ui/graphWall.js';
 import { boardAtStation } from './kit.js';
 
-const AUTO_PLAN = [20, 30, 45, 55, 65];
+const AUTO_PLAN = (ctx => (ctx.params.get('robot') || '10,30,50').split(',').map(Number));
 
 export async function run(ctx, scope) {
   const { ui, loco, robi, game, audio, lab, input } = ctx;
@@ -15,7 +16,7 @@ export async function run(ctx, scope) {
   if (ctx.params.get('o2') && !ctx.o2Used) { ctx.o2Used = true; game.s.o2 = Number(ctx.params.get('o2')); game.spend(0); }
 
   // not even the smallest plan fits: open the emergency tanks (once per chapter attempt, costs score)
-  const minCost = (PLAN_MIN - 1) * 3 * TRIAL_COST + 2 * TRIAL_COST;
+  const minCost = ROBOT_MIN * 3 * TRIAL_COST + 2 * TRIAL_COST;
   let reserve = false;
   if (game.s.o2 <= minCost) { game.s.o2 = 240; game.s.flags.reserveUsed = true; game.addScore(-100); game.spend(0); reserve = true; }
   ctx.graph ??= createGraphWall(ctx, lab.anchors.A_graphWall);
@@ -29,46 +30,50 @@ export async function run(ctx, scope) {
   robi.face('happy');
   if (reserve) await scope.say('c3_reserve');
 
-  // ---- plan: temperature chips (37 is locked in) ----
+  // ---- plan: temperature chips; the student's hand temperatures are locked (✋) ----
+  const hand = game.handTemps();
+  ctx.lockedTemps = hand;
   const b = boardAtStation(ctx, scope, 'robot', { dist: 0.85, height: 1.22 });
   const temps = [];
   for (let t = SLIDER.min; t <= SLIDER.max; t += SLIDER.step) temps.push(t);
-  const plan = new Set(game.s.plan.length ? game.s.plan.filter(t => t !== FIRST_TEMP) : []);
+  const plan = new Set(game.s.plan.filter(t => !hand.includes(t)));
+  const MSG = { few: 'צריך לפחות 3 טמפרטורות לרובוט', many: 'יותר מ-5 יגמרו את החמצן', oneSided: 'צריך גם מתחת ל-35° וגם מעל 45°' };
   const fb = scope.add(ui.panel({ w: 0.9, h: 0.09, name: 'planFeedback', draw(g, W, H, f) {
     if (!f) return;
     g.fillStyle = f.msg ? ui.C.mars : ui.C.oxy;
-    ui.fitText(g, { few: 'צריך לפחות 5 טמפרטורות', many: 'יותר מ-7 טמפרטורות יגמרו את החמצן', oneSided: 'צריך גם מתחת ל-35° וגם מעל 45°', budget: `התוכנית צריכה ${f.cost} דקות חמצן, ויש רק ${game.s.o2}` }[f.msg] || `תוכנית טובה: ${f.cost} דקות חמצן. לוחצים הפעלה!`, { x: W * 0.03, y: 0, w: W * 0.94, h: H, maxPx: H * 0.5, minPx: ui.minPx(900), font: ui.FONT });
+    ui.fitText(g, MSG[f.msg] || (f.msg === 'budget' ? `התוכנית צריכה ${f.cost} דקות חמצן, ויש רק ${game.s.o2}` : `תוכנית טובה: ${f.cost} דקות חמצן. לוחצים הפעלה!`),
+      { x: W * 0.03, y: 0, w: W * 0.94, h: H, maxPx: H * 0.5, minPx: ui.minPx(900), font: ui.FONT });
   } }));
   fb.mesh.position.set(0, 0.2, 0.01); b.add(fb.mesh);
   const chipW = 0.058, gap = 0.008;
-  const all = [...temps.slice(0, 7), FIRST_TEMP, ...temps.slice(7)];
-  const chips = all.map((t, i) => {
-    const locked = t === FIRST_TEMP;
-    const c = scope.add(ui.card({ w: chipW, h: 0.07, label: `${t}°`, onSelect: cc => {
+  const chips = temps.map((t, i) => {
+    const locked = hand.includes(t);
+    const c = scope.add(ui.card({ w: chipW, h: 0.07, label: locked ? `${t}✋` : `${t}°`, name: 'planChip', onSelect: cc => {
       if (locked) return;
       if (plan.has(t)) { plan.delete(t); cc.setState('idle'); } else { plan.add(t); cc.setState('sel'); }
       audio.sfx('click'); refresh();
     } }));
     if (locked) c.setState('right'); else if (plan.has(t)) c.setState('sel');
-    c.mesh.position.set(-(all.length / 2 - i - 0.5) * (chipW + gap), 0.08, 0.01);  // math order: cold on the left
+    c.mesh.position.set(-(temps.length / 2 - i - 0.5) * (chipW + gap), 0.08, 0.01);  // math order: cold on the left
     b.add(c.mesh);
     return c;
   });
   const go = ui.button3d('הפעלה', () => resolvePlan(), { w: 0.24, h: 0.08 });
   scope.add(go); go.mesh.position.set(0, -0.04, 0.01); b.add(go.mesh);
-  let resolvePlan; const planned = new Promise(r => { resolvePlan = () => { if (game.planFeedback(fullPlan()).ok) r(); else audio.sfx('no'); }; });
-  const fullPlan = () => [...plan, FIRST_TEMP].sort((a, c) => a - c);
+  const robotPlan = () => [...plan].sort((a, c) => a - c);
+  let resolvePlan; const planned = new Promise(r => { resolvePlan = () => { if (game.planFeedback(robotPlan()).ok) r(); else audio.sfx('no'); }; });
+  const fullPlan = () => [...plan, ...hand].sort((a, c) => a - c);
   let lastMsg;
   function refresh() {
-    const f = game.planFeedback(fullPlan());
+    const f = game.planFeedback(robotPlan());
     fb.redraw(f); go.setEnabled(f.ok);
-    if (f.msg !== lastMsg && f.msg && plan.size >= 4) audio.say('c3_' + f.msg);
+    if (f.msg !== lastMsg && f.msg && plan.size >= 2) audio.say('c3_' + f.msg);
     if (f.ok && lastMsg !== null && lastMsg !== undefined) audio.say('c3_ok');
     lastMsg = f.msg;
   }
   refresh();
   await scope.say('c3_plan');
-  if (ctx.auto) { for (const t of AUTO_PLAN) input.select(chips[all.indexOf(t)].mesh); resolvePlan(); }
+  if (ctx.auto) { for (const t of AUTO_PLAN(ctx)) if (!plan.has(t)) input.select(chips[temps.indexOf(t)].mesh); resolvePlan(); }
   await scope.guard(planned);
   game.s.plan = fullPlan();
   audio.sfx('ok');
@@ -77,9 +82,27 @@ export async function run(ctx, scope) {
 
   // ---- robot runs ----
   await scope.say('c3_run');
-  const runTemps = game.s.plan.filter(t => t !== FIRST_TEMP);
+  const validAt = T => (game.s.trials[T] || []).filter(t => t.valid).length;
+  // first: two more repeats at each of the student's temperatures (no oxygen cost). A student's "forgot to stir"
+  // reading is made the visible outlier whenever possible — then the robot plants none of its own.
+  let studentOut = false;
+  for (const T of hand) {
+    const own = game.s.trials[T].find(t => t.by === 'student' && t.valid);
+    const unmixed = own.meta === 'unmixed';
+    const { vals, studentOut: out } = completeValues(T, rng, own.volume, unmixed);
+    if (out) studentOut = true;
+    if (validAt(T) >= 3) continue;
+    await scope.guard(rapp.setBath(T, 900));
+    for (const v of vals.slice(0, 3 - validAt(T))) {
+      rapp.reset(); rapp.setGas(0); rapp.robotPrep();
+      await scope.guard(rapp.runTrial(v, 1.6));
+      game.addTrial(T, { volume: v, by: 'robot', read: 'auto', fill: true }, { free: true });
+      audio.sfx('click');
+    }
+  }
+  const runTemps = game.s.plan.filter(t => !hand.includes(t));
   // one "forgot to stir" outlier at a temperature where it really shows (rate ≥ 15 ml/min); none if no such temperature
-  const candidates = runTemps.filter(t => trueRate(t) >= 15);
+  const candidates = studentOut ? [] : runTemps.filter(t => trueRate(t) >= 15);
   const outT = candidates.length ? candidates[Math.floor(rng() * candidates.length)] : null;
   const outI = Math.floor(rng() * 3);
   const valuesFor = T => robotValues(T, rng, T === outT ? outI : null);
@@ -88,8 +111,7 @@ export async function run(ctx, scope) {
   const leakIdx = [1, 2].filter(i => i < runTemps.length - 1 && runTemps[i] !== outT).sort(() => rng() - 0.5)[0] ?? 1;
   const stormIdx = Math.min(runTemps.length - 1, leakIdx + 1 + Math.floor(rng() * Math.max(1, runTemps.length - leakIdx - 1)));
   const leakT = runTemps[leakIdx] ?? null, stormT = runTemps[stormIdx];
-  let n = 0, k = 0, leakDone = false, stormDone = false, azDone = false;
-  const validAt = T => (game.s.trials[T] || []).filter(t => t.valid).length;
+  let n = 0, k = 0, leakDone = false, stormDone = false, azDone = false, why3 = false;
   for (const T of runTemps) {
     if (validAt(T) >= 3) { k++; continue; }
     const { vals, outIdx } = valuesFor(T);
@@ -134,6 +156,7 @@ export async function run(ctx, scope) {
       i++;
     }
     k++;
+    if (!why3) { why3 = true; robi.face('think'); await scope.say('c2_why3'); robi.face('happy'); }   // three repeats, three different results
     if (k === 1 && !azDone) { azDone = true; await azoulayScene(ctx, scope); }
   }
   rapp.reset();
