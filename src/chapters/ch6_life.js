@@ -28,7 +28,7 @@ async function loadCorridor(ctx) {
     if (p?.name.replace(/_\d+$/, '') === 'CORR_static') { m.lightMap = lm; m.lightMapIntensity = TUNE.lightMapIntensity; m.envMapIntensity = TUNE.staticEnv; }
     else m.envMapIntensity = TUNE.detailEnv;
   });
-  ctx.engine.scene.add(g.scene);
+  ctx.engine.scene.add(g.scene); ctx.corridorRoot = g.scene;
   corridor = { root: g.scene, nodes };
   ctx.loco.addStation('corr', nodes.ST_corr, nodes.TP_corr);
   for (let i = 1; i <= 4; i++) ctx.loco.addStation(`case${i}`, nodes[`ST_case${i}`], nodes[`TP_case${i}`]);

@@ -43,7 +43,7 @@ export function createFigure(ctx, { hologram = false, tint = null, female = fals
     const y0 = root.rotation.y;
     return tween(ms, k => { root.rotation.y = y0 + d * k; }, ease.inOut);
   }
-  ctx.track?.(root, hologram ? 'commander' : 'azoulay');
+  ctx.track?.(root, hologram ? 'commander' : 'azoulay'); if (!hologram) ctx.body?.(root, female ? 'azoulay' : 'crew', 0.2);
   return {
     root, parts: N,
     show(pos, lookAt) { root.position.copy(pos); if (lookAt) faceTo(lookAt); root.visible = true; },

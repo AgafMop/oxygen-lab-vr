@@ -62,7 +62,7 @@ export function createRobi(ctx) {
     root.rotation.x = 0; root.rotation.z = 0;
     return tween(ms * Math.min(1, Math.abs(d) / 1.2 + 0.3), k => { root.rotation.y = y0 + d * k; }, ease.inOut);
   }
-  ctx.track?.(root, 'robi');
+  ctx.track?.(root, 'robi'); ctx.body?.(root, 'robi', 0.16, [0.45, 0.8]);
   const robi = {
     root,
     face(e) { expr = e; draw(); },

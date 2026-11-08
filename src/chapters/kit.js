@@ -49,10 +49,31 @@ export function board(ctx, scope, anchorName, offset = [0, 0, 0]) {
 export function boardAtStation(ctx, scope, stationId, { dist = 1.0, height = 1.25, side = 0 } = {}) {
   const s = ctx.loco.stations[stationId];
   const g = new THREE.Group();
-  const fwd = new THREE.Vector3(-Math.sin(s.yaw), 0, -Math.cos(s.yaw));
-  const right = new THREE.Vector3(Math.cos(s.yaw), 0, -Math.sin(s.yaw));
-  g.position.copy(s.pos).addScaledVector(fwd, dist).addScaledVector(right, side); g.position.y = height;
-  g.rotation.y = s.yaw;
+  const { engine } = ctx;
+  const place = (yaw, base, y) => {
+    const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+    const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+    g.position.copy(base).addScaledVector(fwd, dist).addScaledVector(right, side); g.position.y = y;
+    g.rotation.y = yaw;
+  };
+  if (engine.isXR()) {
+    // in the headset: open in front of where the student is looking, and follow gently if they turn far away
+    const headYaw = () => { const d = engine.renderer.xr.getCamera().getWorldDirection(new THREE.Vector3()); return Math.atan2(-d.x, -d.z); };
+    const head = engine.headPosition(new THREE.Vector3());
+    const dy = height - 1.17;                       // boards were laid out for a 1.17 m seated eye height
+    let yaw = headYaw();
+    place(yaw, head, head.y + dy);
+    const off = engine.onFrame(dt => {
+      const h = engine.headPosition(new THREE.Vector3()), want = headYaw();
+      let d = want - yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      if (Math.abs(d) > 0.9 || g.userData.following) {                     // turned more than ~50°: glide back in front
+        g.userData.following = Math.abs(d) > 0.05;
+        yaw += d * Math.min(1, dt * 2.5);
+        place(yaw, h, h.y + dy);
+      }
+    });
+    scope.add(off);
+  } else place(s.yaw, s.pos, height);
   ctx.engine.scene.add(g); scope.add(g);
   if (ctx.params?.has('tour')) ctx.tourPending = (ctx.tourPending || 0) + 1;   // ?tour: screenshot once it renders
   return g;

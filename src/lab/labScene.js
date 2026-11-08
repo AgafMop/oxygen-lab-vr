@@ -17,7 +17,7 @@ const PLACE = {
   // bottles pulled toward the centre (side by side behind the bath) so both read on desktop
   P_bottle3: ['A_bottle3', [-0.3, 0, -0.26]], P_bottle30: ['A_bottle30', [-0.2, 0, -0.08]], P_yeastJar: ['A_yeastJar'], P_spoon: ['A_spoon'],
   P_rod: ['A_rod'], P_stopperTube: ['A_stopperTube'], P_stopperSealed: ['A_stopperSealed'], P_timer: ['A_timer'],
-  P_goggles: ['A_goggleRack', [0.08, 0.02, 0]],
+  P_goggles: ['A_yeastJar', [-0.2, 0, -0.1]],          // on the bench in front of the student (the wall rack was easy to miss)
   P_generatorTank: ['A_generator'], P_generatorGlass: ['A_generator'], P_generatorLiquid: ['A_generator'],
   P_generatorConsole: ['A_generator', [1.45, 0, 0.85], Math.PI / 2 + 0.5],   // beside the window, not in front of it
 };
@@ -125,5 +125,24 @@ export async function loadLab(engine, base = 'assets/') {
     dustGeo.attributes.position.needsUpdate = true;
   });
 
+  // safety goggles: a recognisable pair — curved tinted visor, dark frame, orange strap — standing up, facing the student
+  if (P.P_goggles) {
+    const G = P.P_goggles;
+    G.children.forEach(c => { c.visible = false; });
+    const pair = new THREE.Group();
+    const visor = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 12, 0, Math.PI, Math.PI * 0.28, Math.PI * 0.44),
+      glassify(new THREE.MeshStandardMaterial({ color: 0x7fdcd4, transparent: true, opacity: 0.6, roughness: 0.05, envMapIntensity: 1.6, side: THREE.DoubleSide, depthWrite: false }), { rim: 0.7 }));
+    visor.scale.set(0.085, 0.07, 0.05);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.06, 8, 48), new THREE.MeshStandardMaterial({ color: 0x23282e, roughness: 0.5 }));
+    rim.scale.set(0.084, 0.032, 1); rim.position.z = 0.0;
+    const strap = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.013, 8, 48, Math.PI), new THREE.MeshStandardMaterial({ color: 0xe8643a, roughness: 0.6 }));
+    strap.rotation.x = -Math.PI / 2;                 // half loop behind the visor
+    pair.add(visor, rim, strap);
+    G.add(pair);
+    G.updateWorldMatrix(true, false);
+    pair.quaternion.copy(G.getWorldQuaternion(new THREE.Quaternion()).invert()).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.7, 0, 0)));   // leaning back on its strap, visor up toward the seated student
+    pair.position.set(0, 0.03 / G.getWorldScale(new THREE.Vector3()).y, 0);
+    G.userData.glass = false;
+  }
   return { root, anchors, stationNodes, discs, screens, alarms, props: P, robi: R, glass, dust, crewScene: crew.scene, crewFScene: crewF.scene, alarmLight };
 }

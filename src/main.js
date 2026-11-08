@@ -44,6 +44,25 @@ ctx.animSpeed = Number(params.get('animspeed')) || (AUTO ? 8 : 1);    // ?animsp
 if (TEST) {          // motion audit: a visible tracked object must not jump (> 5 cm per frame at real speed) outside a fade
   ctx.motionAudit = []; const tracked = new Map(), seenJump = new Set(), P = new THREE.Vector3();
   ctx.track = (o, name) => { if (o && !tracked.has(o)) tracked.set(o, { name, last: null, vis: false }); };
+  // collision audit: rays from a figure's body axis (knee/hip/chest height) must not hit the room or furniture within its radius
+  ctx.collisionAudit = []; const bodies = new Map(), seenHit = new Set(), rcB = new THREE.Raycaster(), C = new THREE.Vector3(); let frameN = 0;
+  ctx.body = (o, name, r, hs = [0.35, 0.8, 1.25]) => bodies.set(o, { name, r, hs });
+  engine.onFrame(() => {
+    if (++frameN % 6 || !ctx.lab) return;
+    const solids = [ctx.lab.root, ctx.corridorRoot].filter(x => x && x.visible);
+    for (const [o, b] of bodies) {
+      if (!shown(o) || Math.abs(o.rotation.x) > 0.5) continue;          // a lying patient rests on the bed by design
+      o.getWorldPosition(C);
+      for (const h of b.hs) for (let k = 0; k < 8; k++) {
+        const a = k * Math.PI / 4;
+        rcB.set(new THREE.Vector3(C.x, h, C.z), new THREE.Vector3(Math.sin(a), 0, Math.cos(a))); rcB.far = b.r;
+        const hit = rcB.intersectObjects(solids, true)[0];
+        if (!hit) continue;
+        const key = `${b.name}|${game.s.chapter}|${Math.round(C.x * 5)}|${Math.round(C.z * 5)}`;
+        if (!seenHit.has(key)) { seenHit.add(key); ctx.collisionAudit.push({ name: b.name, chapter: game.s.chapter, x: +C.x.toFixed(2), z: +C.z.toFixed(2), h, mesh: hit.object.name }); }
+      }
+    }
+  });
   const shown = o => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return !!o.parent; };
   engine.onAfterRender(() => {
     // a jump = an isolated one-frame step: still before, ≥ 6 cm in one frame, still after (animations ramp up and down)

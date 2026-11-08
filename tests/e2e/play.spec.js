@@ -270,12 +270,13 @@ test('chapter 4: a kept student leak is walked with the leak cause', async ({ pa
   expect(errors).toEqual([]);
 });
 
-for (const ch of ['bench', 'robot', 'rescue']) {
+for (const ch of ['intro', 'hypothesis', 'bench', 'robot', 'rescue', 'life']) {
   test(`motion: nothing visibly jumps in ${ch}`, async ({ page }) => {
     test.setTimeout(900_000);
     const errors = await boot(page, `&auto&animspeed=2&only=${ch}&hand=20,40&seed=7`);
     await page.waitForFunction(c => window.__chapterDone === c, ch, { timeout: 880_000 });
     expect(await page.evaluate(() => window.__ctx.motionAudit)).toEqual([]);
+    expect(await page.evaluate(() => window.__ctx.collisionAudit)).toEqual([]);
     expect(errors).toEqual([]);
   });
 }

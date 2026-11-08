@@ -166,8 +166,8 @@ export function createUI(engine, input, { audit = false } = {}) {
     const cam = renderer.xr.getCamera();
     const head = cam.getWorldPosition(target.clone());
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.getWorldQuaternion(q));
-    target.copy(head).addScaledVector(fwd, 1.6); target.y = head.y - 0.42;
-    subPanel.mesh.position.lerp(target, Math.min(1, dt * 3));
+    target.copy(head).addScaledVector(fwd, 1.4); target.y = head.y - 0.3;          // a little below the gaze, always in view
+    subPanel.mesh.position.lerp(target, Math.min(1, dt * 5));
     subPanel.mesh.lookAt(head);
   });
   const subtitles = {

@@ -16,7 +16,9 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
   const { scene, camera } = engine;
   let tweenSpeed = speed;
   const tweenAt = makeTween(engine, 1);
-  const tween = (ms, fn, e) => tweenAt(ms / ((ctx.animSpeed ?? (ctx.auto ? 8 : 1)) * tweenSpeed), fn, e);
+  const anim = () => ctx.animSpeed ?? (ctx.auto ? 8 : 1);
+  // fast robot runs speed tools up, but never so much that a move finishes in a frame or two (it would read as a jump)
+  const tween = (ms, fn, e) => tweenAt(Math.max(ms / (anim() * tweenSpeed), 240 / anim()), fn, e);
   const P = lab.props;
   const wp = o => o.getWorldPosition(new THREE.Vector3());
 
@@ -294,7 +296,7 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
     },
     /** Robi's run: the robot-bench set really does every step (fast after the first one). */
     async robotRun({ fast = false } = {}) {
-      const prev = tweenSpeed; tweenSpeed = fast ? 6 : 2;
+      const prev = tweenSpeed; tweenSpeed = fast ? 3.5 : 1.6;
       try { await app.pour('3'); await app.addYeast(); await app.stir(); await app.setStopper('tube'); } finally { tweenSpeed = prev; }
     },
     setSpeed(v) { tweenSpeed = v; },
