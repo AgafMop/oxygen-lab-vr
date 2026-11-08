@@ -120,10 +120,16 @@ export function createInput(engine) {
   canvas.addEventListener('pointerdown', e => {
     if (!enabled || engine.isXR() || !drag || mouse.locked || e.button !== 0) return;
     const obj = mouse.hover; if (!obj || !handlers.get(obj)?.grabbable) return;
-    drag.begin(); ray.setFromCamera(mouse.ndc, camera); drag.move(ray.ray);
-    grab(mouse, obj, drag.holder);
+    mouse.pending = { obj, x: e.clientX, y: e.clientY };          // a click, unless the mouse moves while pressed
   });
-  addEventListener('pointerup', () => { if (mouse.grabbed?.managed) release(mouse); });
+  addEventListener('pointermove', e => {
+    const p = mouse.pending; if (!p || mouse.grabbed) return;
+    if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < 6) return;
+    mouse.pending = null;
+    drag.begin(); ray.setFromCamera(mouse.ndc, camera); drag.move(ray.ray);
+    grab(mouse, p.obj, drag.holder);
+  });
+  addEventListener('pointerup', () => { mouse.pending = null; if (mouse.grabbed?.managed) release(mouse); });
 
   // ---- per-frame hover ----
   engine.onFrame(() => {

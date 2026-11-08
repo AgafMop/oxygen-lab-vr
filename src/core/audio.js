@@ -72,6 +72,8 @@ export function createAudio(ui, { fast = false } = {}) {
     sfx(name, arg) { try { SFX[name]?.(arg); } catch { /* audio blocked */ } },
     unlock: ac,
     setFast,
+    /** Cut the line now playing (teacher skip). */
+    stop() { if (current) { const c = current; current = null; try { c.el?.pause(); } catch { /* gone */ } c.finish(); } ui.subtitles.hide(); },
     /** Speak a line: subtitle always; mp3 if recorded. Resolves when done — or when another line interrupts it. */
     say(id) {
       const l = LINES[id];

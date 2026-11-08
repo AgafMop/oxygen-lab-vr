@@ -69,7 +69,12 @@ export function createEngine(el) {
     nextFrame() { return new Promise(r => { const off = engine.onFrame(() => { off(); r(); }); }); },
     /** World-space head position. */
     headPosition(target = new THREE.Vector3()) {
-      return (renderer.xr.isPresenting ? renderer.xr.getCamera() : camera).getWorldPosition(target);
+      // the user camera is a child of the rig and three.js copies the XR head pose into it every frame
+      return camera.getWorldPosition(target);
+    },
+    /** World quaternion of the head (desktop or XR). */
+    headQuaternion(target = new THREE.Quaternion()) {
+      return camera.getWorldQuaternion(target);
     },
   };
   return engine;

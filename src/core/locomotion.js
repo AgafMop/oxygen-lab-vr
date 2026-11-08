@@ -20,11 +20,8 @@ export function createLocomotion(engine, input) {
 
   function headLocal() {
     if (!engine.isXR()) return { x: 0, z: 0, yaw: 0 };
-    const xrCam = renderer.xr.getCamera();
-    // pose of the head relative to the rig
-    const inv = rig.matrixWorld.clone().invert();
-    const m = xrCam.matrixWorld.clone().premultiply(inv);
-    v.setFromMatrixPosition(m); q.setFromRotationMatrix(m); e.setFromQuaternion(q, 'YXZ');
+    // pose of the head relative to the rig: three.js keeps it in the user camera (a child of the rig)
+    v.copy(camera.position); e.setFromQuaternion(camera.quaternion, 'YXZ');
     return { x: v.x, y: v.y, z: v.z, yaw: e.y };
   }
 
@@ -96,7 +93,7 @@ export function createLocomotion(engine, input) {
     if (engine.isXR()) return;
     let dx = 0, dy = 0;
     if (input.mouse.locked) { dx = ev.movementX; dy = ev.movementY; }
-    else if (drag && ev.buttons && !input.mouse.grabbed) { dx = ev.clientX - drag.x; dy = ev.clientY - drag.y; drag.x = ev.clientX; drag.y = ev.clientY; }   // dragging a prop never turns the view
+    else if (drag && ev.buttons && !input.mouse.grabbed && !input.mouse.pending) { dx = ev.clientX - drag.x; dy = ev.clientY - drag.y; drag.x = ev.clientX; drag.y = ev.clientY; }   // dragging a prop never turns the view
     yaw -= dx * 0.0035; pitch = Math.max(-1.2, Math.min(1.1, pitch - dy * 0.0035));
   });
 
@@ -141,7 +138,7 @@ export function createLocomotion(engine, input) {
         if (gp.buttons[3]?.pressed && !loco.__rc) { loco.__rc = true; loco.recenter(); }
         if (!gp.buttons[3]?.pressed) loco.__rc = false;
       } else if (src.handedness === 'left' && smooth && (Math.abs(ax) > 0.15 || Math.abs(ay) > 0.15)) {
-        const h = new THREE.Euler().setFromQuaternion(renderer.xr.getCamera().getWorldQuaternion(q), 'YXZ').y;
+        const h = new THREE.Euler().setFromQuaternion(camera.getWorldQuaternion(q), 'YXZ').y;
         const sp = 1.4 * dt;
         move((Math.cos(h) * ax + Math.sin(h) * ay) * sp, (-Math.sin(h) * ax + Math.cos(h) * ay) * sp);
       }

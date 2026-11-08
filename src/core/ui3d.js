@@ -139,7 +139,7 @@ export function createUI(engine, input, { audit = false } = {}) {
   /** Place `mesh` at `dist` in front of the head, facing it. */
   function inFront(mesh, dist = 1.4, down = 0.1, side = 0) {
     const head = engine.headPosition(new THREE.Vector3());
-    const cam = engine.isXR() ? renderer.xr.getCamera() : camera;
+    const cam = camera;
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.getWorldQuaternion(new THREE.Quaternion()));
     fwd.y = 0; fwd.normalize();
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
@@ -163,7 +163,7 @@ export function createUI(engine, input, { audit = false } = {}) {
   engine.onFrame(dt => {
     if (subTimer > 0 && (subTimer -= dt) <= 0) { subPanel.mesh.visible = false; if (subEl) subEl.hidden = true; }
     if (!engine.isXR() || !subPanel.mesh.visible) return;
-    const cam = renderer.xr.getCamera();
+    const cam = camera;
     const head = cam.getWorldPosition(target.clone());
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.getWorldQuaternion(q));
     target.copy(head).addScaledVector(fwd, 1.4); target.y = head.y - 0.3;          // a little below the gaze, always in view

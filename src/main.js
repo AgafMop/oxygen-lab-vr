@@ -11,6 +11,9 @@ import * as THREE from 'three';
 import { createGame } from './game/state.js';
 import { createStorage } from './game/storage.js';
 import { CHAPTERS } from './game/config.js';
+import { skipFill } from './game/skipFill.js';
+import { createWind } from './fx/wind.js';
+import { makeRng } from './game/model.js';
 import { createScope, Abort } from './chapters/kit.js';
 import * as ch0 from './chapters/ch0_intro.js';
 import * as ch1 from './chapters/ch1_hypothesis.js';
@@ -87,6 +90,28 @@ if (TEST) {          // motion audit: a visible tracked object must not jump (> 
 }
 const saved = !params.has('only') && !params.has('fresh') ? storage.get(SAVE_KEY) : null;
 if (TEST) window.__ctx = ctx;
+// teacher demo (?demo): "next stage" — a corner button on the desktop, B / Y on the controllers in the headset, key M.
+// The film's own skip comes first; otherwise the chapter ends at once and its results are filled in (main → skipFill).
+if (ctx.demo) {
+  ctx.demoSkip = () => {
+    const film = document.getElementById('skip');
+    if (film && !film.hidden) { film.click(); return; }
+    if (ctx.scope && !ctx.scope.aborted) { audio.sfx('click'); ctx.scope.skip(); }
+  };
+  const b = document.createElement('button');
+  b.className = 'btn alt'; b.type = 'button'; b.id = 'demoSkip'; b.textContent = '⏭ לשלב הבא';
+  b.style.cssText = 'position:fixed;bottom:14px;left:14px;z-index:7;font-size:15px;padding:8px 16px';
+  b.addEventListener('click', e => { e.stopPropagation(); ctx.demoSkip(); });
+  document.body.append(b);
+  addEventListener('keydown', e => { if (e.code === 'KeyM') ctx.demoSkip(); });
+  let latch = false;
+  engine.onFrame(() => {
+    const ses = engine.renderer.xr.getSession?.(); if (!ses) return;
+    const down = [...ses.inputSources].some(src => src.gamepad?.buttons[5]?.pressed);   // B (right) / Y (left)
+    if (down && !latch) ctx.demoSkip();
+    latch = down;
+  });
+}
 if (TEST && params.has('tour')) {          // screenshot tour: grab the frame after each new board has rendered twice
   window.__tour = []; let seen = 0, wait = 0;
   const select = input.select.bind(input); let q = Promise.resolve();      // auto clicks wait so each board stays on screen
@@ -124,6 +149,7 @@ async function boot() {
   ctx.robi = createRobi(ctx);
   ctx.mood = createMood(ctx);
   createLabSigns(ctx);
+  ctx.wind = createWind(ctx);
   ctx.robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45), { instant: true });
   await ui.fontsReady;
   $('enter').disabled = false; $('enter').textContent = 'כניסה במחשב';
@@ -220,6 +246,14 @@ async function runChapter(id) {
     } catch (e) {
       offOver(); scope.cleanup();
       if (!(e instanceof Abort)) throw e;
+      if (scope.skipped) {                     // teacher demo: the chapter counts as played, its results filled in
+        audio.stop?.(); ctx.app.clearFx(); ctx.app.reset(); ctx.app.hint(null);
+        skipFill(game, id, makeRng(game.s.seed * 13 + CHAPTERS.indexOf(id)));
+        if (id === 'intro') ctx.mood.set({ light: 0.85, gen: 0.15 });
+        ctx.graph?.update?.();
+        window.__chapterDone = id;
+        return;
+      }
     }
     await gameOverPanel();
     game.restoreCheckpoint();

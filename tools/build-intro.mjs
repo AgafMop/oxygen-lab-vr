@@ -9,9 +9,11 @@ import { INTRO_VIDEO } from '../src/game/introVideo.js';
 const X = 0.5;                                   // crossfade length
 const SHOTS = [                                  // clip 3 was generated as an extension: its first 10 s repeat clip 2
   { file: 'intro/clips/1.mp4' }, { file: 'intro/clips/2.mp4', gain: 0.45 }, { file: 'intro/clips/3.mp4', ss: 'auto' },
-  { file: 'intro/clips/4.mp4', gain: 0.5 }, { file: 'intro/clips/5.mp4' },
+  // shot 4 ends as Dr. Azoulay finishes her line (she keeps gesturing after it); the last shot holds its final frame
+  { file: 'intro/clips/4.mp4', gain: 0.5, len: 7.2 }, { file: 'intro/clips/5.mp4', tail: 1.6 },
 ];
 const LEN = 10;
+const lenOf = sh => sh.len ?? LEN;
 const probe = f => Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f]).toString());
 // a 20 s clip 3 was generated as an extension of clip 2 (its first 10 s repeat it): use its second half
 for (const sh of SHOTS) if (sh.ss === 'auto') sh.ss = probe(sh.file) > 15 ? 10 : 0;
@@ -22,18 +24,22 @@ for (const c of INTRO_VIDEO.cues) {
 }
 
 const args = ['-v', 'error', '-y'];
-for (const s of SHOTS) args.push(...(s.ss ? ['-ss', String(s.ss)] : []), '-t', String(LEN), '-i', s.file);
+for (const s of SHOTS) args.push(...(s.ss ? ['-ss', String(s.ss)] : []), '-t', String(lenOf(s)), '-i', s.file);
 for (const c of INTRO_VIDEO.cues) args.push('-i', `assets/voice/${c.id}.mp3`);
 
 const f = [];
-SHOTS.forEach((sh, i) => f.push(`[${i}:v]fps=24,scale=1280:720,setsar=1,format=yuv420p,settb=1/24[v${i}]`, `[${i}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${SHOTS[i].gain ?? 1}[a${i}]`));
-let v = 'v0', a = 'a0';
+SHOTS.forEach((sh, i) => f.push(`[${i}:v]fps=24,scale=1280:720,setsar=1,format=yuv420p${sh.tail ? `,tpad=stop_mode=clone:stop_duration=${sh.tail}` : ''},settb=1/24[v${i}]`,
+  `[${i}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${SHOTS[i].gain ?? 1}${sh.tail ? `,apad=pad_dur=${sh.tail}` : ''}[a${i}]`));
+let v = 'v0', a = 'a0', start = 0;
 for (let i = 1; i < SHOTS.length; i++) {
-  const off = (LEN - X) * i;
+  start += lenOf(SHOTS[i - 1]) - X;
+  const off = start;
   f.push(`[${v}][v${i}]xfade=transition=fade:duration=${X}:offset=${off}[vx${i}]`, `[${a}][a${i}]acrossfade=d=${X}[ax${i}]`);
   v = `vx${i}`; a = `ax${i}`;
 }
 const D = INTRO_VIDEO.duration;
+const built = SHOTS.reduce((t, sh) => t + lenOf(sh) + (sh.tail ?? 0), 0) - X * (SHOTS.length - 1);
+if (Math.abs(built - D) > 0.05) throw new Error(`shots make ${built.toFixed(2)} s, INTRO_VIDEO.duration is ${D}`);
 f.push(`[${v}]fade=t=in:st=0:d=0.8,fade=t=out:st=${D - 1}:d=1,trim=0:${D}[vout]`);
 const n = SHOTS.length;
 INTRO_VIDEO.cues.forEach((c, k) => f.push(`[${n + k}:a]aresample=48000,aformat=channel_layouts=stereo,adelay=${Math.round(c.at * 1000)}:all=1[q${k}]`));

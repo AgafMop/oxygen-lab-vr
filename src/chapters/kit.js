@@ -5,12 +5,15 @@ export class Abort extends Error { constructor() { super('chapter aborted'); } }
 
 /** A chapter scope: everything created in it is disposed on cleanup; awaits reject once aborted. */
 export function createScope(ctx) {
-  let aborted = false, rejectAll;
+  let aborted = false, skipped = false, rejectAll;
   const abortP = new Promise((_, rej) => { rejectAll = rej; });
   abortP.catch(() => {});
   const items = [];
   const scope = {
     get aborted() { return aborted; },
+    get skipped() { return skipped; },
+    /** Teacher demo: end the chapter now; the runner fills in its results. */
+    skip() { skipped = true; scope.abort(); },
     add(x) { items.push(x); return x; },
     guard(p) { return Promise.race([p, abortP]); },
     abort() { if (!aborted) { aborted = true; rejectAll(new Abort()); } },
@@ -58,7 +61,7 @@ export function boardAtStation(ctx, scope, stationId, { dist = 1.0, height = 1.2
   };
   if (engine.isXR()) {
     // in the headset: open in front of where the student is looking, and follow gently if they turn far away
-    const headYaw = () => { const d = engine.renderer.xr.getCamera().getWorldDirection(new THREE.Vector3()); return Math.atan2(-d.x, -d.z); };
+    const headYaw = () => { const d = engine.camera.getWorldDirection(new THREE.Vector3()); return Math.atan2(-d.x, -d.z); };
     const head = engine.headPosition(new THREE.Vector3());
     const dy = height - 1.17;                       // boards were laid out for a 1.17 m seated eye height
     let yaw = headYaw();

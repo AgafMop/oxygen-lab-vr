@@ -50,6 +50,7 @@ export async function run(ctx, scope) {
   ];
   const bins = [['change', 'משנים', '#E8643A'], ['measure', 'מודדים', '#3CC4BC'], ['same', 'קבוע', '#9FB0C8']];
   let selected = null, firstTry = true, left = items.length, onDone;
+  const placed = {};
   const done = new Promise(res => { onDone = res; });
   const itemCards = items.map(([icon, label, want]) => {
     const card = scope.add(ui.card({ w: 0.16, h: 0.2, label, icon: ICON[icon], fs: 26, onSelect: cc => {
@@ -63,7 +64,10 @@ export async function run(ctx, scope) {
     if (!selected) return;
     if (selected.want === kind) {
       selected.card.setState('right'); audio.sfx('ok');
-      const m = selected.card.mesh; m.position.set(bc.mesh.position.x + (Math.random() - 0.5) * 0.1, bc.mesh.position.y - 0.16, 0.02); m.scale.setScalar(0.55);
+      // sorted cards line up side by side under their bin (three constants never pile up)
+      const n = items.filter(x => x[2] === kind).length, k = placed[kind] = (placed[kind] ?? -1) + 1;
+      const m = selected.card.mesh; m.scale.setScalar(0.5);
+      m.position.set(bc.mesh.position.x + (k - (n - 1) / 2) * 0.086, bc.mesh.position.y - 0.155, 0.02);
       selected = null;
       if (--left === 0) onDone();
     } else {

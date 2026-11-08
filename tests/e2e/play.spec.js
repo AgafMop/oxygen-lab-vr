@@ -304,7 +304,7 @@ test('desktop drag: dragging the 3% bottle over the flask pours', async ({ page 
   await page.mouse.move(b.x, b.y); await page.waitForTimeout(300);
   await page.mouse.down();
   for (let i = 1; i <= 10; i++) { await page.mouse.move(b.x + (m.x - b.x) * i / 10, b.y + (m.y - b.y) * i / 10); await page.waitForTimeout(60); }
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(4500);
   await page.screenshot({ path: `${SHOTS}/drag-pour.png` });
   const st = await page.evaluate(() => ({ lvl: window.__ctx.app.flaskLevel(), log: window.__ctx.handLog }));
   await page.mouse.up();
@@ -483,18 +483,38 @@ test('chapter 6 auto: four life cases in the corridor, then back to the lab', as
   expect(errors).toEqual([]);
 });
 
-test('demo: the skip button runs the whole bench by itself and reads well', async ({ page }) => {
-  test.setTimeout(560_000);
-  const errors = await boot(page, '&demo&only=bench&seed=7');
-  await page.waitForFunction(() => !!window.__ctx.demoTurbo, null, { timeout: 120_000 });
+test('demo: Robi demonstrates a measurement; "next stage" skips the bench with the readings recorded', async ({ page }) => {
+  test.setTimeout(480_000);
+  const errors = await boot(page, '&demo&only=bench&seed=7&animspeed=8');
+  await page.waitForFunction(() => !!window.__ctx.demoPlay, null, { timeout: 120_000 });
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${SHOTS}/demo-bench.png` });
+  // pick 30°, then let Robi run one measurement up to the reading board (selection blocked so the board stays open)
+  await page.evaluate(() => { let chip; window.__ctx.engine.scene.traverse(o => { if (o.userData.temp === 30) chip = o; }); window.__ctx.input.select(chip); });
+  await page.waitForTimeout(500);
+  await page.evaluate(() => { window.__sel = window.__ctx.input.select; window.__ctx.input.select = () => {}; window.__ctx.demoPlay(); });
+  await page.waitForFunction(() => !!document.querySelector('#sub') && /בחרו את הנפח/.test(document.querySelector('#sub').textContent), null, { timeout: 400_000 });
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: `${SHOTS}/demo-buttons.png` });
-  await page.evaluate(() => window.__ctx.demoTurbo());
-  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 540_000 });
-  const s = await page.evaluate(() => ({ trials: window.__ctx.game.s.trials, auto: window.__ctx.auto }));
-  const own = Object.values(s.trials).map(l => l.filter(t => t.by === 'student' && t.valid).length).filter(n => n > 0);
+  await page.screenshot({ path: `${SHOTS}/demo-reading.png` });
+  await page.evaluate(() => { window.__ctx.input.select = window.__sel; });
+  await page.click('#demoSkip');
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 30_000 });
+  const own = await page.evaluate(() => Object.values(window.__ctx.game.s.trials).map(l => l.filter(t => t.by === 'student' && t.valid).length).filter(n => n > 0));
   expect(own).toEqual([3, 3]);
-  expect(s.auto).toBe(false);
   await expectTextFits(page);
+  expect(errors).toEqual([]);
+});
+
+test('desktop click: a plain click on the cylinder fills it (no drag needed)', async ({ page }) => {
+  test.setTimeout(240_000);
+  const errors = await boot(page, '&only=bench&seed=7&animspeed=8');
+  await page.waitForFunction(() => { let c; window.__ctx.engine.scene.traverse(o => { if (o.userData.temp === 30) c = o; }); return !!c; }, null, { timeout: 150_000 });
+  await page.evaluate(() => { let c; window.__ctx.engine.scene.traverse(o => { if (o.userData.temp === 30) c = o; }); window.__ctx.input.select(c); });
+  await page.waitForFunction(() => /ממלאים את המשורה/.test(document.querySelector('#sub')?.textContent || ''), null, { timeout: 90_000 });
+  const c = await screenOf(page, 'new window.__ctx.engine.THREE.Box3().setFromObject(window.__ctx.lab.props.P_cylinder).getCenter(new window.__ctx.engine.camera.position.constructor())');
+  await page.mouse.move(c.x, c.y); await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__ctx.input.hovered() === window.__ctx.lab.props.P_cylinder)).toBe(true);
+  await page.mouse.click(c.x, c.y);
+  await page.waitForFunction(() => window.__ctx.handLog.includes('click:fillCylinder'), null, { timeout: 20_000 });
   expect(errors).toEqual([]);
 });

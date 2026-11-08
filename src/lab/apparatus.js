@@ -160,6 +160,12 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
     if (PS.length) parts.instanceMatrix.needsUpdate = true;
   });
 
+  // hint arrow: a teal cone pointing down at the next tool
+  const hintArrow = new THREE.Group();
+  { const m = new THREE.MeshBasicMaterial({ color: 0x3cc4bc });
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.04, 16), m); cone.rotation.x = Math.PI;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.035, 10), m); stem.position.y = 0.035;
+    hintArrow.add(cone, stem); hintArrow.visible = false; scene.add(hintArrow); }
   // camera overlays (splash red, goggles rim)
   function overlay(draw, z = -0.12) {
     const c = document.createElement('canvas'); c.width = 512; c.height = 384; draw(c.getContext('2d'), 512, 384);
@@ -311,14 +317,22 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
       yeastLayer.scale.set(1, 1, 1); yeastLayer.visible = false; yeastLayer.userData.n = 0; yeastLayer.scale.y = 1; foamTop.visible = false;
       tubeMesh.visible = false; if (app.stopper) goHome(app.stopper); app.stopper = null;
     },
-    /** Pulse a prop's emissive to hint at it (null clears). */
+    /** Pulse a prop's emissive and float an arrow over it (null clears). */
     hint(obj) {
       if (app._hintOff) { app._hintOff(); app._hintOff = null; }
       if (!obj) return;
       const mats = [];
       obj.traverse(o => { if (o.isMesh && o.material.emissive) mats.push([o.material, (o.userData.__em || o.material.emissive).clone()]); });
-      const off = engine.onFrame(() => { const k = 0.25 + 0.25 * Math.sin(performance.now() * 0.008); for (const [m] of mats) m.emissive.setRGB(0.24 * k * 2, 0.77 * k * 2, 0.74 * k * 2); });
-      app._hintOff = () => { off(); for (const [m, e] of mats) m.emissive.copy(e); };
+      const box = new THREE.Box3();
+      const off = engine.onFrame(() => {
+        const t = performance.now(), k = 0.25 + 0.25 * Math.sin(t * 0.008);
+        for (const [m] of mats) m.emissive.setRGB(0.24 * k * 2, 0.77 * k * 2, 0.74 * k * 2);
+        box.setFromObject(obj); const c = box.getCenter(new THREE.Vector3());
+        hintArrow.visible = obj.visible !== false;
+        hintArrow.position.set(c.x, box.max.y + 0.07 + 0.015 * Math.sin(t * 0.006), c.z);
+        hintArrow.rotation.y = t * 0.002;
+      });
+      app._hintOff = () => { off(); hintArrow.visible = false; for (const [m, e] of mats) m.emissive.copy(e); };
     },
     setGas,
     reset() {

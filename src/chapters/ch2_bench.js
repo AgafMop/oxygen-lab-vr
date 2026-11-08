@@ -108,7 +108,6 @@ export async function run(ctx, scope) {
   // ---- temperature chooser: one chip row; used temperatures locked, 90° boils ----
   const handList = (ctx.params.get('hand') || '20,40').split(',').map(Number);
   const boiled = new Set();
-  let pickAuto = null;
   let failUsed = false;
   function chooseTemperature(level) {
     const used = new Set(game.handTemps());
@@ -124,15 +123,15 @@ export async function run(ctx, scope) {
             ctx.pendingFx = playFail(r.fail, {}); await ctx.pendingFx; ctx.pendingFx = null; app.clearFx();
             busyPick = false; return;
           }
-          audio.sfx('click'); chips.forEach(x => x.dispose()); pickAuto = null; resolve(t);
+          audio.sfx('click'); chips.forEach(x => x.dispose()); resolve(t);
         } }));
+        c.mesh.userData.temp = t;
         if (used.has(t)) c.setState('right'); else if (boiled.has(t)) c.setState('off');
         c.mesh.position.set(-(HAND_TEMPS.length / 2 - HAND_TEMPS.indexOf(t) - 0.5) * 0.085, 0, 0.01);   // cold on the left
         b.add(c.mesh);
         return c;
       });
       if (level === 'full') { robi.gesture('point'); audio.say('c2_dial'); }
-      pickAuto = () => { const t = handList.find(x => !used.has(x)) ?? HAND_TEMPS.find(x => x < 90 && !used.has(x)); input.select(chips[HAND_TEMPS.indexOf(t)].mesh); };
       if (ctx.auto) (async () => {
         if (autofail === 'boil' && !boiled.has(90)) {
           await scope.wait(40); await input.select(chips[HAND_TEMPS.indexOf(90)].mesh);
@@ -227,13 +226,13 @@ export async function run(ctx, scope) {
     if (readUI) { const i = readUI.opts.indexOf(readUI.v); input.select(readUI.cards[i].mesh); }
   }
 
-  // ---- teacher demo (?demo): Robi shows the current measurement with the real tools, or the bench runs to the end at speed ----
-  let demoBusy = false, turbo = false, speed0 = ctx.animSpeed;
-  const endTurbo = () => { if (!turbo) return; turbo = false; ctx.auto = false; ctx.animSpeed = speed0; audio.setFast?.(false); };
+  // ---- teacher demo (?demo): Robi shows the current measurement with the real tools; "next stage" skips the bench ----
+  let demoBusy = false;
   async function demoPlay() {
-    if (!proc || demoBusy || proc.step === 'done') return;
+    if (demoBusy) return;
     demoBusy = true;
     try {
+      for (let i = 0; i < 300 && (!proc || proc.step === 'done'); i++) await scope.wait(50);   // the bath may still be heating
       for (let n = 0; n < 12 && proc && proc.step !== 'done'; n++) {
         while (busy) await scope.wait(50);
         const s = proc.step;
@@ -248,12 +247,6 @@ export async function run(ctx, scope) {
       }
     } catch { /* a tool was in the student's hand: just stop */ } finally { demoBusy = false; }
   }
-  function startTurbo() {
-    if (turbo) return;
-    turbo = true; ctx.auto = true; speed0 = ctx.animSpeed; ctx.animSpeed = 8; audio.setFast?.(true);
-    if (pickAuto) pickAuto(); else demoPlay();
-    ctx.demoState = () => ({ step: proc?.step, busy, demoBusy, goggles });
-  }
   if (ctx.demo) {
     const s = loco.stations.bench, dg = new THREE.Group();
     const fwd = new THREE.Vector3(-Math.sin(s.yaw), 0, -Math.cos(s.yaw)), right = new THREE.Vector3(Math.cos(s.yaw), 0, -Math.sin(s.yaw));
@@ -261,13 +254,12 @@ export async function run(ctx, scope) {
     dg.rotation.y = s.yaw + 0.57;                         // turned toward the student
     ctx.engine.scene.add(dg); scope.add(dg);
     const show = scope.add(ui.card({ w: 0.22, h: 0.065, label: '▶ רובי מדגים מדידה', name: 'demoShow', onSelect: () => demoPlay() }));
-    const skip = scope.add(ui.card({ w: 0.22, h: 0.065, label: '⏭ דלג על כל המדידות', name: 'demoSkip', onSelect: () => startTurbo() }));
+    const skip = scope.add(ui.card({ w: 0.22, h: 0.065, label: '⏭ לשלב הבא', name: 'demoSkip', onSelect: () => ctx.demoSkip?.() }));
     show.mesh.position.set(0, 0.04, 0); skip.mesh.position.set(0, -0.04, 0);
     dg.add(show.mesh, skip.mesh);
-    const key = e => { if (e.code === 'KeyN') demoPlay(); if (e.code === 'KeyM') startTurbo(); };
+    const key = e => { if (e.code === 'KeyN') demoPlay(); };
     addEventListener('keydown', key); scope.add(() => removeEventListener('keydown', key));
-    scope.add(endTurbo);
-    ctx.demoPlay = demoPlay; ctx.demoTurbo = startTurbo;
+    ctx.demoPlay = demoPlay;
   }
 
   // ---- two temperatures × three valid repeats (a failed trial is redone at the same temperature) ----
@@ -297,7 +289,7 @@ export async function run(ctx, scope) {
       proc.leak = isLeak; hands.enable(true);
       const d0 = new Promise(res => { resolveTrial = res; });
       afterStep();
-      if (turbo) demoPlay(); else if (ctx.auto) autoPlay().catch(() => {});
+      if (ctx.auto) autoPlay().catch(() => {});
       const d = await scope.guard(d0);
       app.hint(null);
       valid = d.valid;
@@ -371,5 +363,4 @@ export async function run(ctx, scope) {
   await scope.say('c2_three');
   robi.face('happy');
   await scope.wait(ctx.auto ? 50 : 1500);
-  endTurbo();
 }

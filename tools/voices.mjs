@@ -53,7 +53,7 @@ function similarity(a, b) {
 
 async function make(id, l) {
   const raw = `${OUT}/${id}.raw.mp3`, out = `${OUT}/${id}.mp3`;
-  writeFileSync(raw, await tts(`${TAG[l.speaker]} ${l.text}`, VOICE[l.speaker]));
+  writeFileSync(raw, await tts(`${TAG[l.speaker]} ${l.say ?? l.text}`, VOICE[l.speaker]));
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', raw, '-af', FILTER[l.speaker], '-ac', '1', '-b:a', '64k', out]);
   unlinkSync(raw);
   return out;
@@ -67,8 +67,8 @@ for (const [id, l] of Object.entries(LINES)) {
   if (existsSync(out) && !force.has(id)) continue;
   try {
     await make(id, l);
-    let heard = await transcribe(out), sim = heard == null ? null : similarity(l.text, heard);
-    if (sim != null && sim < 0.6) { await make(id, l); heard = await transcribe(out); sim = heard == null ? null : similarity(l.text, heard); }
+    let heard = await transcribe(out), sim = heard == null ? null : similarity(l.say ?? l.text, heard);
+    if (sim != null && sim < 0.6) { await make(id, l); heard = await transcribe(out); sim = heard == null ? null : similarity(l.say ?? l.text, heard); }
     report.push({ id, sim: sim == null ? 'n/a' : sim.toFixed(2), heard });
     console.log(`${id}  sim=${sim == null ? 'n/a' : sim.toFixed(2)}`);
   } catch (e) { console.error(`FAIL ${id}: ${e.message}`); }
