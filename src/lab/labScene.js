@@ -14,7 +14,7 @@ const PLACE = {
   P_bath: ['A_bath'], P_flask: ['A_flask'], P_trough: ['A_trough'], P_cylinder: ['A_cylinder'],
   P_stand: ['A_trough', [-0.2, 0, 0.02]], P_thermometer: ['A_bath', [0.12, 0.02, 0.07]],
   // bottles pulled toward the centre (side by side behind the bath) so both read on desktop
-  P_bottle3: ['A_bottle3', [-0.18, 0, -0.34]], P_bottle30: ['A_bottle30', [-0.2, 0, -0.08]], P_yeastJar: ['A_yeastJar'], P_spoon: ['A_spoon'],
+  P_bottle3: ['A_bottle3', [-0.3, 0, -0.26]], P_bottle30: ['A_bottle30', [-0.2, 0, -0.08]], P_yeastJar: ['A_yeastJar'], P_spoon: ['A_spoon'],
   P_rod: ['A_rod'], P_stopperTube: ['A_stopperTube'], P_stopperSealed: ['A_stopperSealed'], P_timer: ['A_timer'],
   P_goggles: ['A_goggleRack', [0.08, 0.02, 0]],
   P_generatorTank: ['A_generator'], P_generatorGlass: ['A_generator'], P_generatorLiquid: ['A_generator'],

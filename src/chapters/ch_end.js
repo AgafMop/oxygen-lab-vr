@@ -29,7 +29,7 @@ export async function run(ctx, scope) {
   await scope.say('end_commander');
 
   // hypothesis vs. what the data showed
-  const b = boardAtStation(ctx, scope, 'bench', { dist: 0.85, height: 1.32 });
+  const b = boardAtStation(ctx, scope, 'bench', { dist: 0.9, height: 1.42 });
   const ms = Object.entries(game.s.trials).map(([T, l]) => [Number(T), mean(l.filter(t => t.valid).map(t => t.volume))]).filter(([, m]) => m != null).sort((a, c) => a[0] - c[0]);
   const real = (g, x, y, w, h) => {
     g.strokeStyle = '#7f93b0'; g.lineWidth = 6; g.beginPath(); g.moveTo(x + 10, y); g.lineTo(x + 10, y + h); g.lineTo(x + w, y + h); g.stroke();
@@ -43,23 +43,26 @@ export async function run(ctx, scope) {
 
   // score + stars + badges
   let shown = 0;
-  const score = scope.add(ui.panel({ w: 0.9, h: 0.36, draw(g, W, H) {
+  const score = scope.add(ui.panel({ w: 0.92, h: 0.52, name: 'endScore', draw(g, W, H) {
     ui.rr(g, 6, 6, W - 12, H - 12, 30); g.fillStyle = 'rgba(12,18,30,0.94)'; g.fill(); g.lineWidth = 6; g.strokeStyle = ui.C.good; g.stroke();
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl';
-    g.fillStyle = '#ffd166'; g.font = `800 ${H * 0.2}px ${ui.FONT}`; g.fillText('★'.repeat(final.stars) + '☆'.repeat(3 - final.stars), W / 2, H * 0.17);
-    g.fillStyle = ui.C.ink; g.font = `800 ${H * 0.16}px ${ui.FONT}`; g.fillText(`${Math.round(shown)} נקודות`, W / 2, H * 0.4);
-    const ids = Object.keys(BADGES), cw = (W - 40) / ids.length;
+    g.fillStyle = '#ffd166'; g.font = `800 ${H * 0.13}px ${ui.FONT}`; g.fillText('★'.repeat(final.stars) + '☆'.repeat(3 - final.stars), W / 2, H * 0.11);
+    g.fillStyle = ui.C.ink; g.font = `800 ${H * 0.1}px ${ui.FONT}`; g.fillText(`${Math.round(shown)} נקודות`, W / 2, H * 0.25);
+    // badges: two columns, earned ones bright — name + what earned it
+    const ids = Object.keys(BADGES), colW = (W - 60) / 2, rowH = (H * 0.64) / Math.ceil(ids.length / 2), min = ui.minPx(900);
     ids.forEach((id, i) => {
-      const on = final.badges.includes(id), cx = W - 20 - cw * (i + 0.5);
-      g.globalAlpha = on ? 1 : 0.3;
-      g.fillStyle = on ? ui.C.oxy : '#3a4c6a'; g.beginPath(); g.arc(cx, H * 0.62, H * 0.07, 0, 7); g.fill();
-      g.fillStyle = '#041015'; g.font = `800 ${H * 0.08}px ${ui.FONT}`; g.fillText(on ? '✓' : '·', cx, H * 0.625);
-      g.fillStyle = ui.C.ink; g.font = `700 ${H * 0.048}px ${ui.FONT}`; g.fillText(BADGES[id][0], cx, H * 0.78);
-      g.fillStyle = ui.C.muted; g.font = `500 ${H * 0.029}px ${ui.FONT}`; g.fillText(BADGES[id][1], cx, H * 0.86);
+      const on = final.badges.includes(id), col = i % 2, r = Math.floor(i / 2);
+      const x = W - 30 - colW * (col + 1), y = H * 0.33 + rowH * r;
+      g.globalAlpha = on ? 1 : 0.35;
+      g.fillStyle = on ? ui.C.oxy : '#3a4c6a'; g.beginPath(); g.arc(x + colW - rowH * 0.42, y + rowH / 2, rowH * 0.3, 0, 7); g.fill();
+      g.fillStyle = '#041015'; g.font = `800 ${rowH * 0.36}px ${ui.FONT}`; g.textAlign = 'center'; g.fillText(on ? '✓' : '·', x + colW - rowH * 0.42, y + rowH / 2);
+      const tx = { x: x + 8, w: colW - rowH * 0.9 - 12 };
+      g.fillStyle = ui.C.ink; ui.fitText(g, BADGES[id][0], { ...tx, y: y + rowH * 0.04, h: rowH * 0.48, maxPx: rowH * 0.42, minPx: min, align: 'right', font: ui.FONT });
+      g.fillStyle = ui.C.muted; ui.fitText(g, BADGES[id][1], { ...tx, y: y + rowH * 0.5, h: rowH * 0.46, maxPx: rowH * 0.34, minPx: min, weight: 500, align: 'right', font: ui.FONT });
       g.globalAlpha = 1;
     });
   } }));
-  score.mesh.position.set(0, -0.26, 0.02); b.add(score.mesh);
+  score.mesh.position.set(0, -0.33, 0.02); b.add(score.mesh);
   await scope.guard(new Promise(res => {
     const off = ctx.engine.onFrame(dt => { shown = Math.min(final.score, shown + Math.max(1, final.score) * dt * (ctx.auto ? 8 : 0.8)); score.redraw(); if (shown >= final.score) { off(); res(); } });
     scope.add(off);
@@ -68,7 +71,7 @@ export async function run(ctx, scope) {
   await scope.say('end_new');
   const again = scope.add(ui.button3d('משימה חדשה עם נתונים חדשים', () => restart(true), { w: 0.6, h: 0.09 }));
   const same = scope.add(ui.button3d('מהתחלה', () => restart(false), { style: 'ghost', w: 0.24, h: 0.09 }));
-  again.mesh.position.set(0.12, -0.5, 0.03); same.mesh.position.set(-0.33, -0.5, 0.03); b.add(again.mesh, same.mesh);
+  again.mesh.position.set(0.12, -0.66, 0.03); same.mesh.position.set(-0.33, -0.66, 0.03); b.add(again.mesh, same.mesh);
   if (ctx.auto) return;
   await scope.guard(new Promise(() => {}));   // stay on the end screen until a button reloads the page
 

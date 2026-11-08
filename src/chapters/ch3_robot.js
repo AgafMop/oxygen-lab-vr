@@ -40,6 +40,7 @@ export async function run(ctx, scope) {
   const MSG = { few: 'צריך לפחות 3 טמפרטורות לרובוט', many: 'יותר מ-5 יגמרו את החמצן', oneSided: 'צריך גם מתחת ל-35° וגם מעל 45°' };
   const fb = scope.add(ui.panel({ w: 0.9, h: 0.09, name: 'planFeedback', draw(g, W, H, f) {
     if (!f) return;
+    ui.rr(g, 4, 4, W - 8, H - 8, H * 0.3); g.fillStyle = 'rgba(8,12,20,0.9)'; g.fill();   // readable over the wall graph
     g.fillStyle = f.msg ? ui.C.mars : ui.C.oxy;
     ui.fitText(g, MSG[f.msg] || (f.msg === 'budget' ? `התוכנית צריכה ${f.cost} דקות חמצן, ויש רק ${game.s.o2}` : `תוכנית טובה: ${f.cost} דקות חמצן. לוחצים הפעלה!`),
       { x: W * 0.03, y: 0, w: W * 0.94, h: H, maxPx: H * 0.5, minPx: ui.minPx(900), font: ui.FONT });
@@ -73,7 +74,7 @@ export async function run(ctx, scope) {
   }
   refresh();
   await scope.say('c3_plan');
-  if (ctx.auto) { for (const t of AUTO_PLAN(ctx)) if (!plan.has(t)) input.select(chips[temps.indexOf(t)].mesh); resolvePlan(); }
+  if (ctx.auto) (async () => { for (const t of AUTO_PLAN(ctx)) if (!plan.has(t)) await input.select(chips[temps.indexOf(t)].mesh); resolvePlan(); })();
   await scope.guard(planned);
   game.s.plan = fullPlan();
   audio.sfx('ok');
@@ -172,7 +173,7 @@ export async function run(ctx, scope) {
       const opts = [v, v + 3, v >= 3 ? v - 2.5 : v + 6].sort(() => rng() - 0.5);   // distinct, never negative
       let first = true, answered = false;
       const cards = opts.map((ml, i) => {
-        const c = scope.add(ui.card({ w: 0.1, h: 0.065, label: `${ml} מ״ל`, onSelect: cc => {
+        const c = scope.add(ui.card({ w: 0.13, h: 0.065, label: `${ml} מ״ל`, onSelect: cc => {
           if (answered) return;
           if (Math.abs(ml - v) <= 1) { answered = true; cc.setState('right'); audio.sfx('ok'); setTimeout(() => { mag.dispose(); cards.forEach(x => x.dispose()); res(); }, ctx.auto ? 30 : 700); }
           else { cc.setState('wrong'); audio.sfx('no'); if (first) game.s.flags.wrongRead = true; first = false; audio.say('c2_read_wrong'); }

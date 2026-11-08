@@ -7,7 +7,7 @@ import { makeTween } from '../core/tween.js';
 
 /** Two-button decision on a board in front of the robot station. Resolves true for the first (honest) choice. */
 export async function decide(ctx, scope, [yesLabel, noLabel]) {
-  const b = boardAtStation(ctx, scope, 'robot', { dist: 0.72, height: 1.08, side: -0.1 });
+  const b = boardAtStation(ctx, scope, 'robot', { dist: 0.72, height: 1.22, side: 0.12 });   // clear of Robi's face
   let onPick = () => {};
   const yes = scope.add(ctx.ui.button3d(yesLabel, () => onPick(true), { w: 0.3, h: 0.08 }));
   const no = scope.add(ctx.ui.button3d(noLabel, () => onPick(false), { style: 'ghost', w: 0.3, h: 0.08 }));

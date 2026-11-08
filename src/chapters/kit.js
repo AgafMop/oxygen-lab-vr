@@ -41,6 +41,7 @@ export function board(ctx, scope, anchorName, offset = [0, 0, 0]) {
   g.rotation.y = a.userData.yaw ?? 0;
   ctx.engine.scene.add(g);
   scope.add(g);
+  if (ctx.params?.has('tour')) ctx.tourPending = (ctx.tourPending || 0) + 1;   // ?tour: screenshot once it renders
   return g;
 }
 
@@ -53,6 +54,7 @@ export function boardAtStation(ctx, scope, stationId, { dist = 1.0, height = 1.2
   g.position.copy(s.pos).addScaledVector(fwd, dist).addScaledVector(right, side); g.position.y = height;
   g.rotation.y = s.yaw;
   ctx.engine.scene.add(g); scope.add(g);
+  if (ctx.params?.has('tour')) ctx.tourPending = (ctx.tourPending || 0) + 1;   // ?tour: screenshot once it renders
   return g;
 }
 

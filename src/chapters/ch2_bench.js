@@ -106,7 +106,7 @@ export async function run(ctx, scope) {
   function chooseTemperature(level) {
     const used = new Set(game.handTemps());
     return new Promise(resolve => {
-      const b = boardAtStation(ctx, scope, 'bench', { dist: 0.55, height: 1.05, side: 0.32 });
+      const b = boardAtStation(ctx, scope, 'bench', { dist: 0.55, height: 1.05, side: 0.2 });
       let busyPick = false;
       const chips = HAND_TEMPS.map(t => {
         const c = scope.add(ui.card({ w: 0.075, h: 0.065, label: used.has(t) ? `${t}° ✋` : `${t}°`, name: 'tempChip', onSelect: async cc => {
@@ -127,7 +127,7 @@ export async function run(ctx, scope) {
       if (level === 'full') { robi.gesture('point'); audio.say('c2_dial'); }
       if (ctx.auto) (async () => {
         if (autofail === 'boil' && !boiled.has(90)) {
-          await scope.wait(40); input.select(chips[HAND_TEMPS.indexOf(90)].mesh);
+          await scope.wait(40); await input.select(chips[HAND_TEMPS.indexOf(90)].mesh);
           await scope.wait(60); while (busyPick) await scope.wait(50);
         }
         const t = handList.find(x => !used.has(x));
@@ -145,7 +145,7 @@ export async function run(ctx, scope) {
     const opts = [v, v >= 2 ? v + (rng() < 0.5 ? 2 : -2) : v + 2, v >= 4 ? v + (rng() < 0.5 ? 5 : -4) : v + 5].map(x => Math.round(x * 2) / 2);
     for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
     let answered = false;
-    const cards = opts.map(ml => scope.add(ui.card({ w: 0.1, h: 0.07, label: `${ml} מ״ל`, onSelect: c => {
+    const cards = opts.map(ml => scope.add(ui.card({ w: 0.13, h: 0.07, label: `${ml} מ״ל`, onSelect: c => {
       if (answered) return;
       const r = proc.act({ type: 'read', ml });
       if (r.ok) answered = true;
@@ -195,7 +195,7 @@ export async function run(ctx, scope) {
       app.hint(null);
       valid = d.valid;
       if (valid && idx === 0) { robi.face('wow'); await scope.say('c2_warm'); robi.face('happy'); }
-      await scope.wait(ctx.auto ? 50 : 600);
+      await scope.wait(ctx.auto ? 50 : 1100);   // let the reading board clear before the next board
     }
   }
 

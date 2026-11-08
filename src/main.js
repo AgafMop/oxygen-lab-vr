@@ -42,6 +42,17 @@ const game = createGame({ seed, storage });
 const ctx = { engine, input, ui, audio, game, storage, ready: false, params, auto: AUTO, seed };
 const saved = !params.has('only') && !params.has('fresh') ? storage.get(SAVE_KEY) : null;
 if (TEST) window.__ctx = ctx;
+if (TEST && params.has('tour')) {          // screenshot tour: grab the frame after each new board has rendered twice
+  window.__tour = []; let seen = 0, wait = 0;
+  const select = input.select.bind(input); let q = Promise.resolve();      // auto clicks wait so each board stays on screen
+  input.select = m => (q = q.then(() => new Promise(r => setTimeout(r, 1500))).then(() => select(m)));
+  engine.onAfterRender(() => {
+    if ((ctx.tourPending || 0) === seen) return;
+    if (++wait < 2) return;
+    wait = 0; seen = ctx.tourPending;
+    window.__tour.push({ chapter: game.s.chapter, sub: document.getElementById('sub')?.hidden ? '' : document.getElementById('sub')?.textContent, img: engine.renderer.domElement.toDataURL('image/jpeg', 0.8) });
+  });
+}
 
 const $ = id => document.getElementById(id);
 

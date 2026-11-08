@@ -34,17 +34,20 @@ export function createEngine(el) {
   fadeMesh.visible = false;
   camera.add(fadeMesh);
 
-  const frameFns = new Set();
+  const frameFns = new Set(), afterFns = new Set();
   const clock = new THREE.Clock();
   renderer.setAnimationLoop(() => {
     const dt = Math.min(0.05, clock.getDelta());
     for (const fn of frameFns) fn(dt);
     renderer.render(scene, camera);
+    for (const fn of afterFns) fn();
   });
 
   const engine = {
     THREE, renderer, scene, camera, rig, clock,
     onFrame(fn) { frameFns.add(fn); return () => frameFns.delete(fn); },
+    /** Runs right after each render (the canvas still holds the frame). */
+    onAfterRender(fn) { afterFns.add(fn); return () => afterFns.delete(fn); },
     isXR: () => renderer.xr.isPresenting,
     /** Animate the fade sphere to opacity `to` (0 clear, 1 black). */
     fade(to, ms = 250) {
