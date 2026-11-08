@@ -26,7 +26,7 @@ export async function run(ctx, scope) {
   rapp.reset();
 
   await loco.goTo('robot');
-  robi.placeNear(lab.anchors.A_robotBench.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(0.62, 0, -0.1));
+  robi.placeNear(lab.anchors.A_robotBench.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(-0.45, 0, 0.75));   // beside the bench, on the student's side
   robi.face('happy');
   if (reserve) await scope.say('c3_reserve');
 

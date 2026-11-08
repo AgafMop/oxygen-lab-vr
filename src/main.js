@@ -24,6 +24,7 @@ import * as ch5 from './chapters/ch5_rescue.js';
 import * as ch6 from './chapters/ch6_life.js';
 import { SAVE_KEY } from './game/config.js';
 import { createIntroVideo, primeIntroVideo } from './fx/introCinema.js';
+import { isClear } from './lab/clearance.js';
 
 const CH = { intro: ch0, hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4, rescue: ch5, life: ch6, end: chEnd };
 const CH_NAMES = { intro: 'פתיחה', rescue: 'הצלת הבסיס', life: 'מסדרון החיים', hypothesis: 'תדריך והשערה', bench: 'הניסוי בידיים', robot: 'רובי מריץ ניסויים', graph: 'הגרף והאנזים', end: 'סיכום' };
@@ -49,14 +50,18 @@ if (TEST) {          // motion audit: a visible tracked object must not jump (> 
   ctx.body = (o, name, r, hs = [0.35, 0.8, 1.25]) => bodies.set(o, { name, r, hs });
   engine.onFrame(() => {
     if (++frameN % 6 || !ctx.lab) return;
-    const solids = [ctx.lab.root, ctx.corridorRoot].filter(x => x && x.visible);
+    const solids = []; for (const r of [ctx.lab.root, ctx.corridorRoot].filter(x => x && x.visible)) r.traverse(o => { if (o.isMesh && /^(LAB_static|LAB_detail|CORR_)/.test(o.name)) solids.push(o); });
     for (const [o, b] of bodies) {
       if (!shown(o) || Math.abs(o.rotation.x) > 0.5) continue;          // a lying patient rests on the bed by design
       o.getWorldPosition(C);
+      if (!isClear(ctx, C, b.r * 0.8, [])) {           // inside furniture (seen from above)
+        const key = `${b.name}|${game.s.chapter}|${Math.round(C.x * 5)}|${Math.round(C.z * 5)}|in`;
+        if (!seenHit.has(key)) { seenHit.add(key); ctx.collisionAudit.push({ name: b.name, chapter: game.s.chapter, x: +C.x.toFixed(2), z: +C.z.toFixed(2), inside: true }); }
+      }
       for (const h of b.hs) for (let k = 0; k < 8; k++) {
         const a = k * Math.PI / 4;
         rcB.set(new THREE.Vector3(C.x, h, C.z), new THREE.Vector3(Math.sin(a), 0, Math.cos(a))); rcB.far = b.r;
-        const hit = rcB.intersectObjects(solids, true)[0];
+        const hit = rcB.intersectObjects(solids, false)[0];
         if (!hit) continue;
         const key = `${b.name}|${game.s.chapter}|${Math.round(C.x * 5)}|${Math.round(C.z * 5)}`;
         if (!seenHit.has(key)) { seenHit.add(key); ctx.collisionAudit.push({ name: b.name, chapter: game.s.chapter, x: +C.x.toFixed(2), z: +C.z.toFixed(2), h, mesh: hit.object.name }); }
@@ -119,7 +124,7 @@ async function boot() {
   ctx.robi = createRobi(ctx);
   ctx.mood = createMood(ctx);
   createLabSigns(ctx);
-  ctx.robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45));
+  ctx.robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45), { instant: true });
   await ui.fontsReady;
   $('enter').disabled = false; $('enter').textContent = 'כניסה במחשב';
   if (saved?.chapter && CH[saved.chapter] && saved.chapter !== 'hypothesis') {

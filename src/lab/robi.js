@@ -95,10 +95,10 @@ export function createRobi(ctx) {
       await turnTo(Math.atan2(head.x - root.position.x, head.z - root.position.z), 400);
     },
     /** Move next to a world point, facing the student: instant while hidden (fade/out of sight), a glide when seen. */
-    placeNear(point, offset = new THREE.Vector3(0.6, 0, 0.2)) {
+    placeNear(point, offset = new THREE.Vector3(0.6, 0, 0.2), { instant = false } = {}) {
       const to = clearSpot(ctx, new THREE.Vector3(point.x + offset.x, base.y, point.z + offset.z), R_BODY, R_HS);
       const far = root.position.distanceTo(to) > 3.5;              // another area (corridor, other end of the lab): arrive with the student
-      if (!far && engine.fadeLevel() < 0.9 && root.visible && root.position.distanceTo(to) > 0.05) return robi.moveTo(to);
+      if (!instant && !far && engine.fadeLevel() < 0.9 && root.visible && root.position.distanceTo(to) > 0.05) return robi.moveTo(to);
       moveId++;
       root.position.copy(to);
       const head = engine.headPosition(new THREE.Vector3());

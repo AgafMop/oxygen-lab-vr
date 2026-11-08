@@ -103,7 +103,7 @@ export async function loadLab(engine, base = 'assets/') {
   const R = {};
   robi.scene.traverse(o => { if (o.name.startsWith('R_')) R[o.name] = o; o.isMesh && (o.material.envMapIntensity = 1.0); });
   const robiRoot = R.R_root;
-  robiRoot.position.set(3.6, 0, -0.55);
+  robiRoot.position.set(1.0, 0, -0.97);          // starts beside the student's bench (clear floor)
   scene.add(robiRoot);
   const face = stationNodes.robot.getWorldPosition(new THREE.Vector3()); face.y = 0;
   robiRoot.lookAt(face);

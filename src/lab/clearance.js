@@ -3,15 +3,29 @@
 import * as THREE from 'three';
 
 const rc = new THREE.Raycaster();
-const solids = ctx => [ctx.lab?.root, ctx.corridorRoot].filter(o => o && o.visible);
+// only the built room (LAB_static / LAB_detail / CORR_*): never Robi, the crew or the movable props
+let cache = null, cacheKey = '';
+const solids = ctx => {
+  const roots = [ctx.lab?.root, ctx.corridorRoot].filter(o => o && o.visible), key = roots.map(r => r.uuid).join();
+  if (key === cacheKey) return cache;
+  cache = []; cacheKey = key;
+  for (const r of roots) r.traverse(o => { if (o.isMesh && /^(LAB_static|LAB_detail|CORR_)/.test(o.name)) cache.push(o); });
+  return cache;
+};
 
 /** True when a body of radius r standing at pos (floor point) touches nothing at the given heights. */
 export function isClear(ctx, pos, r, heights) {
   const S = solids(ctx);
+  // standing inside furniture: from above, the first surface under the body must be the floor (rays from inside miss walls)
+  for (const [dx, dz] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]]) {
+    rc.set(new THREE.Vector3(pos.x + dx, 1.45, pos.z + dz), new THREE.Vector3(0, -1, 0)); rc.far = 1.6;
+    const h = rc.intersectObjects(S, false)[0];
+    if (!h || h.point.y > 0.12) return false;          // no floor under it = outside the room
+  }
   for (const h of heights) for (let k = 0; k < 8; k++) {
     const a = k * Math.PI / 4;
     rc.set(new THREE.Vector3(pos.x, h, pos.z), new THREE.Vector3(Math.sin(a), 0, Math.cos(a))); rc.far = r;
-    if (rc.intersectObjects(S, true).length) return false;
+    if (rc.intersectObjects(S, false).length) return false;
   }
   return true;
 }
