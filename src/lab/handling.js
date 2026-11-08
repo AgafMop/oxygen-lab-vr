@@ -11,6 +11,7 @@ export function createHandling(ctx, app, { onAction }) {
   const { scene } = engine;
   const P = lab.props;
   const tween = makeTween(engine, ctx.animSpeed ?? (ctx.auto ? 8 : 1));
+  const realTween = makeTween(engine, 1);      // stirring circles keep real speed so each frame's angle step stays small
   const TOOLS = [
     { obj: P.P_bottle3, kind: 'pour', bottle: '3', len: 0.15 },
     { obj: P.P_bottle30, kind: 'pour', bottle: '30', len: 0.15 },
@@ -53,7 +54,7 @@ export function createHandling(ctx, app, { onAction }) {
     if (!enabled || !t || held) return false;
     held = { t, holder, stir: createStir(), tried: new Set(), started: performance.now() };
     t.loaded = false;
-    app.remember(obj);
+    app.remember(obj); obj.userData.moveId = (obj.userData.moveId || 0) + 1;   // grabbing cancels a return home in progress
     holder.attach(obj);
     ghost.visible = true;
     audio.sfx('click');
@@ -190,7 +191,7 @@ export function createHandling(ctx, app, { onAction }) {
       moveTo(to, ms = 500) { const from = h.position.clone(); return tween(ms, k => h.position.lerpVectors(from, to, k), ease.inOut); },
       tilt(rad, ms = 400) { const r0 = h.rotation.z; return tween(ms, k => { h.rotation.z = r0 + (rad - r0) * k; }); },
       circle(center, turns = 3.3, ms = 1600, r = 0.02) {
-        return tween(ms, k => { const a = k * turns * Math.PI * 2; h.position.set(center.x + Math.sin(a) * r, center.y, center.z + Math.cos(a) * r); }, ease.linear);
+        return realTween(ms, k => { const a = k * turns * Math.PI * 2; h.position.set(center.x + Math.sin(a) * r, center.y, center.z + Math.cos(a) * r); }, ease.linear);
       },
       async release() { if (held?.holder === h) await dropAt(); },
       get holding() { return held?.holder === h; },

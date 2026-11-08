@@ -1,6 +1,7 @@
 // Bench apparatus behaviour: liquids, thermometer, gas column, bubbles, tube, displays, failure FX.
 // createApparatus(ctx, {at:'bench'}) drives the real props; {at:'robot'} builds a clone set on the robot bench.
 import * as THREE from 'three';
+import { foamTexture } from './looks.js';
 import { makeTween, lerp, ease } from '../core/tween.js';
 
 const GAS_TOP = 0.21;        // inner top of the inverted cylinder (m, local)
@@ -49,7 +50,7 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
   flaskLiq.visible = false; flask.add(flaskLiq);
   const yeastLayer = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.004, 32), mat(0xc9a86a, { roughness: 0.9 }));
   yeastLayer.position.y = 0.004; yeastLayer.visible = false; flask.add(yeastLayer);
-  const foamTop = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.041, 0.006, 32), mat(0xf6f1e4, { roughness: 1 }));
+  const foamTop = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.041, 0.006, 32), new THREE.MeshStandardMaterial({ map: foamTexture(), roughness: 0.9 }));
   foamTop.visible = false; flask.add(foamTop);
   const troughWater = new THREE.Mesh(new THREE.BoxGeometry(0.288, 0.075, 0.208), tmat(0x3d86c8, 0.38));
   troughWater.position.y = 0.04; trough.add(troughWater);
@@ -190,6 +191,7 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
   function remember(o) { if (!home.has(o)) home.set(o, { parent: o.parent, pos: o.position.clone(), rot: o.rotation.clone() }); }
   async function arc(o, toWorld, ms = 700, lift = 0.12) {
     remember(o); scene.attach(o);
+    o.userData.moveId = (o.userData.moveId || 0) + 1;          // a new move cancels a pending return home
     const from = o.position.clone();
     await tween(ms, k => { o.position.lerpVectors(from, toWorld, k); o.position.y += Math.sin(k * Math.PI) * lift; });
   }
@@ -200,9 +202,10 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
     scene.attach(o);
     const from = o.position.clone(), q0 = o.quaternion.clone();
     const q1 = new THREE.Quaternion().setFromEuler(h.rot).premultiply(h.parent.getWorldQuaternion(new THREE.Quaternion()));
-    const done = () => { h.parent.attach(o); o.position.copy(h.pos); o.rotation.copy(h.rot); };
+    const id = o.userData.moveId = (o.userData.moveId || 0) + 1;
+    const done = () => { if (o.userData.moveId !== id) return; h.parent.attach(o); o.position.copy(h.pos); o.rotation.copy(h.rot); };
     if (!ms) { done(); return Promise.resolve(); }
-    return tween(ms, k => { o.position.lerpVectors(from, toWorld, k); o.position.y += Math.sin(k * Math.PI) * 0.06; o.quaternion.slerpQuaternions(q0, q1, k); }).then(done);
+    return tween(ms, k => { if (o.userData.moveId !== id) return; o.position.lerpVectors(from, toWorld, k); o.position.y += Math.sin(k * Math.PI) * 0.06; o.quaternion.slerpQuaternions(q0, q1, k); }).then(done);
   }
 
   const flaskMouth = () => wp(flask).add(new THREE.Vector3(0, 0.146, 0));

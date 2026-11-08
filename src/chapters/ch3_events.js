@@ -31,7 +31,7 @@ export async function azoulayScene(ctx, scope) {
   const tween = makeTween(engine, ctx.animSpeed ?? (ctx.auto ? 8 : 1));
   await loco.goTo('generator');
   const st = loco.stations.generator.pos;
-  const az = scope.add(createFigure(ctx));
+  const az = scope.add(createFigure(ctx, { female: true }));
   const cmd = scope.add(createFigure(ctx, { hologram: true }));
   az.show(new THREE.Vector3(st.x - 1.5, 0, st.z + 1.6), st);
   ctx.storyPhase = 'azoulay';

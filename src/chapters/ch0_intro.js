@@ -90,7 +90,7 @@ export async function run(ctx, scope) {
   const sky = (to, ms) => new Promise(res => { const from = scene.backgroundIntensity; let k = 0; const o = engine.onFrame(dt => { if (seq.aborted) { o(); res(); return; } k = Math.min(1, k + dt * 1000 / Math.max(1, ms / (ctx.auto ? 8 : 1))); scene.backgroundIntensity = from + (to - from) * k; ground.material.uniforms.uDim.value = 0.35 + 0.65 * scene.backgroundIntensity; if (k >= 1) { o(); res(); } }); });
 
   // inside cast
-  const azoulay = createFigure(ctx, { tint: 0xf0ece4 });
+  const azoulay = createFigure(ctx, { tint: 0xf0ece4, female: true });
   const commander = createFigure(ctx, { hologram: true });
   scope.add(azoulay); scope.add(commander);
 

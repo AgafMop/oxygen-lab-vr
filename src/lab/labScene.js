@@ -1,5 +1,6 @@
 // Loads the Blender-built lab, props and Robi; lightmap, environment, Mars view, dust.
 import * as THREE from 'three';
+import { glassify } from './looks.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -25,10 +26,10 @@ export async function loadLab(engine, base = 'assets/') {
   const { scene, renderer } = engine;
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const texLoader = new THREE.TextureLoader();
-  const [lab, props, robi, lightmap, pano, crew] = await Promise.all([
+  const [lab, props, robi, lightmap, pano, crew, crewF] = await Promise.all([
     loader.loadAsync(base + 'lab.glb'), loader.loadAsync(base + 'props.glb'), loader.loadAsync(base + 'robi.glb'),
     texLoader.loadAsync(base + 'lab_lightmap.webp'), texLoader.loadAsync(base + 'mars_pano.webp'),
-    loader.loadAsync(base + 'crew.glb'),
+    loader.loadAsync(base + 'crew.glb'), loader.loadAsync(base + 'crew_f.glb'),
   ]);
 
   // ---- environment & background ----
@@ -79,7 +80,8 @@ export async function loadLab(engine, base = 'assets/') {
       if (!m.isMesh) return;
       m.material.envMapIntensity = TUNE.propEnv;
       if (o.userData.glass) Object.assign(m.material, {
-        transparent: true, opacity: 0.28, roughness: 0.04, metalness: 0, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 1.6 });
+        transparent: true, opacity: 0.2, roughness: 0.03, metalness: 0, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 1.8 });
+      if (o.userData.glass) glassify(m.material);
       if (o.userData.glass) m.renderOrder = 2;
     });
     if (o.userData.parent) { subs.push(o); continue; }
@@ -123,5 +125,5 @@ export async function loadLab(engine, base = 'assets/') {
     dustGeo.attributes.position.needsUpdate = true;
   });
 
-  return { root, anchors, stationNodes, discs, screens, alarms, props: P, robi: R, glass, dust, crewScene: crew.scene, alarmLight };
+  return { root, anchors, stationNodes, discs, screens, alarms, props: P, robi: R, glass, dust, crewScene: crew.scene, crewFScene: crewF.scene, alarmLight };
 }

@@ -14,7 +14,7 @@ export async function run(ctx, scope) {
   await loco.goTo('generator');
   const st = loco.stations.generator.pos;
   robi.placeNear(st, new THREE.Vector3(-0.3, 0, 1.0));
-  const azoulay = scope.add(createFigure(ctx));
+  const azoulay = scope.add(createFigure(ctx, { female: true }));
   const commander = scope.add(createFigure(ctx, { hologram: true }));
   const spot = consoleSpot(ctx);
   azoulay.show(spot.pos, spot.look);

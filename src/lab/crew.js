@@ -1,14 +1,15 @@
 // Suited crew figures (Azoulay, crew in the corridor) and the commander hologram. No faces: dark visors.
 import * as THREE from 'three';
 import { makeTween, ease } from '../core/tween.js';
+import { hologramMaterial } from './looks.js';
 
-export function createFigure(ctx, { hologram = false, tint = null } = {}) {
+export function createFigure(ctx, { hologram = false, tint = null, female = false } = {}) {
   const { engine, lab } = ctx;
   const tween = makeTween(engine, ctx.animSpeed ?? (ctx.auto ? 8 : 1));
-  const root = lab.crewScene.clone(true);
+  const root = (female && lab.crewFScene ? lab.crewFScene : lab.crewScene).clone(true);
   const N = {}; root.traverse(o => { const k = o.name.replace(/_\d+$/, ''); if (o.name.startsWith('C_') && !N[k]) N[k] = o; });  // parent group wins over its _1/_2 primitives
   const fig = N.C_root || root;
-  const holo = new THREE.MeshBasicMaterial({ color: 0x7fc8ff, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false });
+  const holo = hologram ? hologramMaterial(engine) : null;
   root.traverse(o => {
     if (!o.isMesh) return;
     o.material = hologram ? holo : o.material.clone();
@@ -28,7 +29,6 @@ export function createFigure(ctx, { hologram = false, tint = null } = {}) {
   let walking = 0, t = 0;
   const off = engine.onFrame(dt => {
     t += dt;
-    if (hologram) holo.opacity = 0.34 + 0.08 * Math.sin(t * 9) + (Math.random() < 0.02 ? -0.25 : 0);
     if (walking) {
       const s = Math.sin(t * 7) * 0.5 * walking;
       N.C_legL.rotation.x = s; N.C_legR.rotation.x = -s; N.C_armL.rotation.x = -s * 0.6; N.C_armR.rotation.x = s * 0.6;
@@ -81,6 +81,6 @@ export function createFigure(ctx, { hologram = false, tint = null } = {}) {
         await tween(500, k => { H.rotation.x = 0.45 * (1 - k); T.rotation.x = 0.12 * (1 - k); });
       }
     },
-    dispose() { off(); engine.scene.remove(root); },
+    dispose() { off(); holo?.userData.dispose?.(); engine.scene.remove(root); },
   };
 }

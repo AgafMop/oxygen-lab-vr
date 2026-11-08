@@ -55,6 +55,12 @@ M = {
 }
 floor_maps = polyhaven_texture('concrete_floor_01', '1k')
 M['floor'] = pbr_material('M_floor', floor_maps, tint=(0.36, 0.38, 0.42))
+try:                                   # riveted metal plating on the dark lower walls and the ceiling (CC0, Poly Haven)
+    plate = polyhaven_texture('metal_plate', '1k')
+    M['panelLow'] = pbr_material('M_panelLow', plate, tint=(0.16, 0.2, 0.26))
+    M['ceil'] = pbr_material('M_ceil', plate, tint=(0.24, 0.25, 0.27))
+except Exception as e:
+    print('[lab] metal_plate texture unavailable, flat panels kept:', e)
 
 # ---------------- shell ----------------
 floor = S(box('floor', (X1 - X0, Y1 - Y0, 0.1), (0, 0, -0.05), M['floor']))
@@ -370,9 +376,9 @@ if A.get('preview'):
     render_preview(os.path.join(CACHE, 'preview_lab_wide.png'), 960, 540, samples=16 if DRAFT else 48)
     print(f'[lab] previews {time.time() - t0:.1f}s')
 
-img = bake_lightmap(lab, 1024 if DRAFT else 2048, 32 if DRAFT else 128)
+img = bake_lightmap(lab, 1024 if DRAFT else 2048, 32 if DRAFT else 512)
 print(f'[lab] bake done {time.time() - t0:.1f}s')
-save_image(img, os.path.join(OUT, 'lab_lightmap.webp'), 'WEBP', 90, scale=0.5)
+save_image(img, os.path.join(OUT, 'lab_lightmap.webp'), 'WEBP', 90)   # full 2048: crisper contact shadows
 save_image(img, os.path.join(CACHE, 'lab_lightmap.png'), 'PNG')
 
 export_glb(os.path.join(CACHE, 'lab_raw.glb'),
