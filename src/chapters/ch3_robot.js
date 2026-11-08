@@ -1,7 +1,7 @@
 // Chapter 3: the student picks the robot's extra temperatures (not the ones done by hand); Robi completes the
 // student's temperatures to three repeats, then runs 3 repeats per new temperature; the student reads some results.
 import * as THREE from 'three';
-import { makeRng, trueRate, robotValues, sampleTrial, completeValues, findOutliers } from '../game/model.js';
+import { makeRng, trueRate, robotValues, sampleTrial, completeValues, studentOutlierShown } from '../game/model.js';
 import { decide, azoulayScene, leakFx, stormHits } from './ch3_events.js';
 import { SLIDER, ROBOT_MIN, TRIAL_COST } from '../game/config.js';
 import { createApparatus } from '../lab/apparatus.js';
@@ -49,7 +49,7 @@ export async function run(ctx, scope) {
   const chipW = 0.058, gap = 0.008;
   const chips = temps.map((t, i) => {
     const locked = hand.includes(t);
-    const c = scope.add(ui.card({ w: chipW, h: 0.07, label: locked ? `${t}✋` : `${t}°`, name: 'planChip', onSelect: cc => {
+    const c = scope.add(ui.card({ w: chipW, h: 0.07, label: locked ? `${t} ✋` : `${t}°`, name: 'planChip', onSelect: cc => {
       if (locked) return;
       if (plan.has(t)) { plan.delete(t); cc.setState('idle'); } else { plan.add(t); cc.setState('sel'); }
       audio.sfx('click'); refresh();
@@ -86,13 +86,10 @@ export async function run(ctx, scope) {
   const validAt = T => (game.s.trials[T] || []).filter(t => t.valid).length;
   // first: two more repeats at each of the student's temperatures (no oxygen cost). A student's "forgot to stir"
   // reading is made the visible outlier whenever possible — then the robot plants none of its own.
-  let studentOut = false;
   for (const T of hand) {
+    if (validAt(T) >= 3) continue;                   // the hands-on part already has three repeats here
     const own = game.s.trials[T].find(t => t.by === 'student' && t.valid);
-    const unmixed = own.meta === 'unmixed';
-    const { vals, studentOut: out } = completeValues(T, rng, own.volume, unmixed);
-    if (out) studentOut = true;
-    if (validAt(T) >= 3) continue;
+    const { vals } = completeValues(T, rng, own.volume, own.meta === 'unmixed');
     await scope.guard(rapp.setBath(T, 900));
     for (const v of vals.slice(0, 3 - validAt(T))) {
       rapp.reset(); rapp.setGas(0); rapp.robotPrep();
@@ -101,11 +98,8 @@ export async function run(ctx, scope) {
       audio.sfx('click');
     }
   }
-  // a still-valid deviating reading among the student's own repeats (kept leak / forgot to stir) is the chapter-4 outlier
-  for (const T of hand) {
-    const vl = game.s.trials[T].filter(t => t.valid);
-    if (findOutliers({ [T]: vl.map(t => t.volume) }).some(o => vl[o.index].by === 'student')) studentOut = true;
-  }
+  // a still-valid tagged reading (kept leak / forgot to stir) that really stands out is the chapter-4 outlier
+  const studentOut = studentOutlierShown(Object.fromEntries(hand.map(T => [T, game.s.trials[T]])));
   const runTemps = game.s.plan.filter(t => !hand.includes(t));
   // one "forgot to stir" outlier at a temperature where it really shows (rate ≥ 15 ml/min); none if no such temperature
   const candidates = studentOut ? [] : runTemps.filter(t => trueRate(t) >= 15);

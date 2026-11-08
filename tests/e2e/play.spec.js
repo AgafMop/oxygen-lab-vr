@@ -34,6 +34,18 @@ test('ui: card, subtitle and O2 meter render in Hebrew', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('review #3: text that does not fit its box is reported even inside the canvas', async ({ page }) => {
+  const errors = await boot(page, '&uidemo');
+  const audit = await page.evaluate(() => {
+    const ui = window.__ctx.ui;
+    ui.panel({ w: 0.4, h: 0.2, name: 'fitProbe', draw(g, W, H) { ui.fitText(g, 'מילה '.repeat(8), { x: 20, y: 10, w: W * 0.3, h: H * 0.1, maxPx: 40, minPx: ui.minPx(900), valign: 'top', font: ui.FONT }); } });
+    return ui.textAudit.filter(v => v.name === 'fitProbe').map(v => v.overflow);
+  });
+  expect(audit.length).toBeGreaterThan(0);
+  expect(audit[0]).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('boots and teleports', async ({ page }) => {
   const errors = await boot(page, '&nogame');
   await page.waitForTimeout(800);
@@ -102,7 +114,7 @@ const own = (s, T) => (s.trials[T] || []).filter(t => t.by === 'student');
 
 test('chapter 2 auto: two chosen temperatures × three repeats, a built-in leak caught by the why-three card', async ({ page }) => {
   test.setTimeout(480_000);
-  const errors = await boot(page, '&auto&only=bench&hand=20,40');
+  const errors = await boot(page, '&auto&only=bench&hand=20,40&seed=7');
   await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 300_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
   expect(handOf(s)).toEqual([20, 40]);
@@ -118,9 +130,20 @@ test('chapter 2 auto: two chosen temperatures × three repeats, a built-in leak 
   expect(errors).toEqual([]);
 });
 
+test('review #1: when the first temperature is 70° the built-in leak moves to the second one', async ({ page }) => {
+  test.setTimeout(480_000);
+  const errors = await boot(page, '&auto&only=bench&hand=70,20&seed=7');
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 400_000 });
+  const s = await page.evaluate(() => window.__ctx.game.s);
+  expect(own(s, 70).some(t => t.meta === 'leak')).toBe(false);
+  expect(own(s, 20).filter(t => t.meta === 'leak').length).toBe(1);
+  expect(own(s, 20).find(t => t.meta === 'leak').valid).toBe(false);   // caught on the why-three card
+  expect(errors).toEqual([]);
+});
+
 test('chapter 2 autofail sealedBlast costs 15 more minutes', async ({ page }) => {
   test.setTimeout(480_000);
-  const errors = await boot(page, '&auto&only=bench&autofail=sealedBlast');
+  const errors = await boot(page, '&auto&only=bench&autofail=sealedBlast&seed=7');
   await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 300_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
   expect(handOf(s)).toEqual([20, 40]);
@@ -130,7 +153,7 @@ test('chapter 2 autofail sealedBlast costs 15 more minutes', async ({ page }) =>
 
 test('chapter 2: a failed trial is redone at the same temperature', async ({ page }) => {
   test.setTimeout(480_000);
-  const errors = await boot(page, '&auto&only=bench&autofail=cylinderNotFilled');
+  const errors = await boot(page, '&auto&only=bench&autofail=cylinderNotFilled&seed=7');
   await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 300_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
   expect(own(s, 20)[0].valid).toBe(false);
@@ -142,7 +165,7 @@ test('chapter 2: a failed trial is redone at the same temperature', async ({ pag
 
 test('chapter 2: 90° is a boil trap — no trial there, chosen again', async ({ page }) => {
   test.setTimeout(480_000);
-  const errors = await boot(page, '&auto&only=bench&autofail=boil');
+  const errors = await boot(page, '&auto&only=bench&autofail=boil&seed=7');
   await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 300_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
   expect(s.trials[90]).toBeUndefined();
@@ -154,7 +177,7 @@ test('chapter 2: 90° is a boil trap — no trial there, chosen again', async ({
 
 test('chapter 2 autofail acidMelt: game over, restore, finish', async ({ page }) => {
   test.setTimeout(480_000);
-  const errors = await boot(page, '&auto&only=bench&autofail=acidMelt');
+  const errors = await boot(page, '&auto&only=bench&autofail=acidMelt&seed=7');
   await page.waitForFunction(() => window.__gameOver === 1, null, { timeout: 170_000 });
   await page.screenshot({ path: `${SHOTS}/gameover.png` });
   await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 400_000 });

@@ -1,8 +1,7 @@
 // Canvas-texture UI in 3D: panels, cards, buttons; subtitles; O2 wrist meter (DOM HUD on desktop).
 import * as THREE from 'three';
 import { SPEAKERS } from '../game/script.js';
-import { fitText } from './textFit.js';
-export { fitText };
+import { fitText as fitRaw } from './textFit.js';
 
 export const C = {
   bg: 'rgba(12,18,30,0.92)', bg2: '#16233A', ink: '#EEF2F8', muted: '#9FB0C8', mars: '#E8643A',
@@ -32,7 +31,18 @@ export const minPx = (ppm, viewDist = 0.8) => Math.ceil(0.0175 * viewDist / 0.72
 
 export function createUI(engine, input, { audit = false } = {}) {
   const textAudit = [], seen = new Set();
+  // fitText that also reports a box it could not fit at the minimum size (audit only)
+  function fitText(g, text, opts) {
+    const r = fitRaw(g, text, opts);
+    if (!r.fits) g.__misfit?.(text);
+    return r;
+  }
   function watchText(g, c, { name, ppm, viewDist, realWorld }) {
+    g.__misfit = text => {
+      const key = `${name}|${text}|box`;
+      if (seen.has(key)) return; seen.add(key);
+      textAudit.push({ name, text: String(text), px: 0, ppm, viewDist, overflow: true, small: false, need: minPx(ppm, viewDist), box: true });
+    };
     const raw = g.fillText.bind(g);
     g.fillText = (text, x, y, maxW) => {
       raw(text, x, y, maxW);

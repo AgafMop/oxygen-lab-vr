@@ -88,3 +88,11 @@ test('completeValues never invents an outlier for a normal reading', () => {
     assert.deepEqual(findOutliers({ [T]: [s, ...vals] }), [], `T=${T} seed=${seed}: ${[s, ...vals]}`);
   }
 });
+
+test('review #1: a built-in leak is a detectable outlier at every chip temperature up to 60°', () => {
+  for (const T of [10, 20, 30, 40, 50, 60]) for (let seed = 1; seed <= 200; seed++) {
+    const rng = makeRng(seed * 7 + T);
+    const vals = [sampleTrial(T, rng), sampleTrial(T, rng, { leak: true }), sampleTrial(T, rng)];
+    assert.ok(findOutliers({ [T]: vals }).some(o => o.index === 1), `T=${T} seed=${seed}: ${vals}`);
+  }
+});

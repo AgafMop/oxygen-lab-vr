@@ -29,7 +29,7 @@ export function sampleTrial(T, rng, { mixed = true, spoons = 1, leak = false } =
   const rate = trueRate(T);
   let v = rate * (1 + 0.06 * gauss(rng));
   if (!mixed) v = Math.min(0.6 * v, rate - 4);     // yeast left in a clump: clearly less gas
-  if (leak) v *= 0.55;
+  if (leak) v = Math.min(0.5 * v, rate - 4.5);      // gas escaping at the tube joint: clearly less (detectable wherever the enzyme works)
   v *= spoons;
   v = Math.min(50, Math.max(0, v));
   return Math.round(v * 2) / 2;
@@ -93,4 +93,17 @@ export function completeValues(T, rng, studentVal, unmixed) {
   const r = Math.round(trueRate(T) * 2) / 2;
   const vals = unmixed ? [r, r] : [studentVal, studentVal];
   return { vals, studentOut: unmixed && ok(vals) };
+}
+
+/** A still-valid student reading tagged unmixed/leak is flagged among its temperature's valid readings (chapter 4 will walk it). */
+export function studentOutlierShown(trialsByT) {
+  return Object.entries(trialsByT).some(([T, list]) => {
+    const vl = list.filter(t => t.valid);
+    return findOutliers({ [T]: vl.map(t => t.volume) }).some(o => vl[o.index].by === 'student' && (vl[o.index].meta === 'unmixed' || vl[o.index].meta === 'leak'));
+  });
+}
+/** Where the built-in leak goes: the first hand temperature, unless the enzyme is too slow there to show it (then the second). */
+export function leakTemp(first, second) {
+  const shows = T => T != null && trueRate(T) >= 3.5;
+  return shows(first) ? first : shows(second) ? second : null;
 }

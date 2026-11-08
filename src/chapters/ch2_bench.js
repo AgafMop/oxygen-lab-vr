@@ -2,7 +2,7 @@
 // failures, one built-in measurement error (a leaking tube joint) and a 'why measure three times' card.
 import * as THREE from 'three';
 import { createProcedure } from '../game/procedure.js';
-import { makeRng, mean, findOutliers } from '../game/model.js';
+import { makeRng, mean, findOutliers, leakTemp } from '../game/model.js';
 import { HAND_TEMPS, HAND_REPEATS } from '../game/config.js';
 import { decide, leakFx } from './ch3_events.js';
 import { boardAtStation } from './kit.js';
@@ -201,7 +201,8 @@ export async function run(ctx, scope) {
     const done = completed(), rep = ownValid(curT).length;
     if (!announced.has(done)) { announced.add(done); if (done === 1) await scope.say('c2_again'); if (done === 3) await scope.say('c2_alone'); }
     const hintIdx = done === 0 ? 0 : done < 3 ? 1 : 2;
-    const isLeak = !game.s.flags.handLeak && curT === game.s.flags.handFirstT && rep === leakRep;
+    const first = game.s.flags.handFirstT;
+    const isLeak = !game.s.flags.handLeak && curT === leakTemp(first, curT === first ? null : curT) && rep === leakRep;
     let valid = false;
     while (!valid) {
       app.emptyFlask(); app.setGas(50);
@@ -228,7 +229,9 @@ export async function run(ctx, scope) {
     ctx.why3Shown++;
     const list = game.s.trials[T].map((t, i) => ({ t, i })).filter(x => x.t.by === 'student' && x.t.valid);
     const vals = list.map(x => x.t.volume), m = mean(vals);
-    const out = findOutliers({ [T]: vals }).map(o => list[o.index]);
+    const flagged = findOutliers({ [T]: vals }).map(o => list[o.index]);
+    const tagged = flagged.filter(x => x.t.meta);              // a known cause (leak / unmixed) wins over plain noise
+    const out = tagged.length ? tagged : flagged;
     const b = boardAtStation(ctx, scope, 'bench', { dist: 0.72, height: 1.3 });
     const card = scope.add(ui.panel({ w: 0.52, h: 0.44, name: 'why3', draw(g, W, H) {
       ui.rr(g, 4, 4, W - 8, H - 8, 26); g.fillStyle = 'rgba(12,18,30,0.94)'; g.fill(); g.lineWidth = 6; g.strokeStyle = ui.C.oxy; g.stroke();

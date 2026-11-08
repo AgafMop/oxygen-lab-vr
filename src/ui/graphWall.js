@@ -1,6 +1,7 @@
 // Live table + scatter/mean graph on the east-wall screen. Temperature axis grows to the right.
 import * as THREE from 'three';
 import { mean } from '../game/model.js';
+import { tableRow } from './tableRow.js';
 
 const PLOT = { x0: 0.1, x1: 0.56, y0: 0.15, y1: 0.84, tMax: 70, vMax: 50 };
 
@@ -57,12 +58,10 @@ export function createGraphWall(ctx, anchor) {
       const y = H * 0.17 + rh * (r + 1);
       g.fillStyle = r % 2 ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.07)'; g.fillRect(tx, y - rh * 0.5, tw, rh);
       g.font = `600 ${Math.max(AX, rh * 0.55)}px ${F}`;
-      const cells = [String(T), ...[0, 1, 2].map(i => game.s.trials[T][i]), ms[T] != null ? ms[T].toFixed(1) : ''];
-      cells.forEach((c, i) => {
-        const x = cx(i), cw = CW[i];
-        if (c && typeof c === 'object') { g.fillStyle = c.valid ? C.ink : C.bad; g.fillText(String(c.volume), x, y); if (!c.valid) g.fillRect(x - cw * 0.3, y - 3, cw * 0.6, 4); }
-        else { g.fillStyle = i === 4 ? C.mars : C.ink; g.fillText(c || '', x, y); }
-      });
+      // the valid readings (a redo replaces a struck one; ✗ marks that something was disqualified) — the mean matches the cells
+      const row = tableRow(game.s.trials[T]);
+      const cells = [`${T}${row.struck ? ' ✗' : ''}`, ...[0, 1, 2].map(i => row.cells[i] ?? ''), row.mean != null ? row.mean.toFixed(1) : ''];
+      cells.forEach((c, i) => { g.fillStyle = i === 4 ? C.mars : i === 0 && row.struck ? C.bad : C.ink; g.fillText(String(c), cx(i), y); });
     });
   } });
   p.mesh.position.copy(anchor.getWorldPosition(new THREE.Vector3()));
