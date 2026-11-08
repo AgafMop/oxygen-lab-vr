@@ -34,6 +34,7 @@ export async function playEnzymeZoom(ctx, scope) {
   scene.fog = new THREE.FogExp2(0x1a0f28, 0.35);
   ctx.loco.setOffset(SHIFT);
   scene.add(root);
+  await engine.nextFrame(); await engine.nextFrame();
 
   const head = engine.headPosition(new THREE.Vector3());
   const yaw = new THREE.Euler().setFromQuaternion((engine.isXR() ? engine.renderer.xr.getCamera() : engine.camera).getWorldQuaternion(new THREE.Quaternion()), 'YXZ').y;

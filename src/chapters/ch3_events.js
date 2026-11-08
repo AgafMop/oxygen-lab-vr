@@ -66,11 +66,12 @@ export function leakFx(ctx, scope, flask) {
 /** The storm hits the base: window darkens with a dust wall, lights flicker to emergency red. Returns a `clear()` fn. */
 export async function stormHits(ctx, scope) {
   const { engine, mood, audio } = ctx;
-  const storm = createStorm(ctx, { center: new THREE.Vector3(0, 0, 0), azimuth: Math.PI, arc: 1.6 });
+  const storm = createStorm(ctx, { center: new THREE.Vector3(0, 0, 0), azimuth: Math.PI, arc: 1.6, particles: false });   // no dust inside the lab
   scope.add(storm);
   storm.state.radius = 120; storm.state.height = 70;
   ctx.storyPhase = 'storm';
   audio.sfx('rumble'); audio.sfx('wind', 0.7);
+  scope.add(() => { audio.sfx('wind', 0); engine.scene.backgroundIntensity = 1; });
   const sky = (to, ms) => new Promise(res => { const from = engine.scene.backgroundIntensity; let k = 0; const o = engine.onFrame(dt => { k = Math.min(1, k + dt * 1000 / Math.max(1, ms / (ctx.auto ? 8 : 1))); engine.scene.backgroundIntensity = from + (to - from) * k; if (k >= 1) { o(); res(); } }); });
   await Promise.all([storm.fadeIn(800), storm.approach(3500, 10), sky(0.3, 3000)]);
   mood.set({ flicker: 0.6 }); audio.sfx('alarm');

@@ -1,6 +1,7 @@
 // Lab mood: overall light level, red alarm pulsing, generator glow, flicker. Used by intro, storm, game over, rescue.
 import * as THREE from 'three';
 import { TUNE } from '../lab/labScene.js';
+import { createFlicker } from './flicker.js';
 
 export function createMood(ctx) {
   const { engine, lab } = ctx;
@@ -19,9 +20,10 @@ export function createMood(ctx) {
 
   const state = { light: 1, alarm: 0, gen: 1, flicker: 0 };
   let t = 0;
+  const flickerAt = (f => () => f(t, state.flicker))(createFlicker());
   engine.onFrame(dt => {
     t += dt;
-    const fl = state.flicker > 0 && Math.random() < state.flicker * 0.25 ? 0.25 : 1;
+    const fl = flickerAt();
     const L = state.light * fl;
     for (const m of statics) m.lightMapIntensity = TUNE.lightMapIntensity * L;
     for (const [m, base] of leds) m.emissiveIntensity = base * L;

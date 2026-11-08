@@ -85,7 +85,7 @@ export function createLocomotion(engine, input) {
   addEventListener('keydown', ev => {
     keys.add(ev.code);
     const n = { Digit1: 'entry', Digit2: 'bench', Digit3: 'robot', Digit4: 'generator' }[ev.code];
-    if (n && stations[n] && !engine.isXR()) loco.goTo(n);
+    if (n && stations[n] && !engine.isXR() && !area) loco.goTo(n);   // lab hotkeys only inside the lab
   });
   addEventListener('keyup', ev => keys.delete(ev.code));
   canvas.addEventListener('dblclick', () => { if (!engine.isXR() && canvas.requestPointerLock) canvas.requestPointerLock(); });

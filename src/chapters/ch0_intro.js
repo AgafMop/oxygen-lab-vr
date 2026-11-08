@@ -68,7 +68,7 @@ export async function run(ctx, scope) {
 
   const storm = createStorm(ctx, { center: OUTSIDE.clone(), azimuth: Math.PI * 0.62 });
   scope.add(storm);
-  const sky = (to, ms) => new Promise(res => { const from = scene.backgroundIntensity; let k = 0; const o = engine.onFrame(dt => { k = Math.min(1, k + dt * 1000 / Math.max(1, ms / (ctx.auto ? 8 : 1))); scene.backgroundIntensity = from + (to - from) * k; ground.material.uniforms.uDim.value = 0.35 + 0.65 * scene.backgroundIntensity; if (k >= 1) { o(); res(); } }); });
+  const sky = (to, ms) => new Promise(res => { const from = scene.backgroundIntensity; let k = 0; const o = engine.onFrame(dt => { if (seq.aborted) { o(); res(); return; } k = Math.min(1, k + dt * 1000 / Math.max(1, ms / (ctx.auto ? 8 : 1))); scene.backgroundIntensity = from + (to - from) * k; ground.material.uniforms.uDim.value = 0.35 + 0.65 * scene.backgroundIntensity; if (k >= 1) { o(); res(); } }); });
 
   // inside cast
   const azoulay = createFigure(ctx, { tint: 0xf0ece4 });
@@ -79,6 +79,7 @@ export async function run(ctx, scope) {
     await engine.fade(1, 10);
     hidden.forEach(o => { o.visible = false; });
     ctx.loco.setOffset(OUTSIDE.clone()); shifted = true;
+    await engine.nextFrame(); await engine.nextFrame();
     if (skipBtn) { ui.inFront(skipBtn.mesh, 1.2, 0.45); }
     ctx.introPhase = 'outside';
     audio.sfx('wind', 0.25);
@@ -108,6 +109,8 @@ export async function run(ctx, scope) {
     azoulay.show(new THREE.Vector3(st.x - 1.45, 0, st.z - 0.95), st);
     commander.show(new THREE.Vector3(st.x - 1.5, 0, st.z + 1.0), st);
     ctx.introPhase = 'inside';
+    await engine.nextFrame();
+    if (skipBtn) ui.inFront(skipBtn.mesh, 1.2, 0.45);
     await engine.fade(0, 900);
     await seq.say('intro_3');
     await seq.guard(hold(0));
@@ -119,7 +122,9 @@ export async function run(ctx, scope) {
     await seq.say('intro_5');
   } catch (e) {
     if (!(e instanceof Abort) || scope.aborted) throw e;
-    // skipped: jump straight to the lab state
+    // skipped: fade out, drop the storm, jump straight to the lab state
+    await engine.fade(1, 250);
+    storm.dispose();
   }
   restore();
   ctx.mood.set({ light: 0.85, alarm: 0, gen: 0.15, flicker: 0 });

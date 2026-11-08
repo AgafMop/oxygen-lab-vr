@@ -44,6 +44,13 @@ if (TEST) window.__ctx = ctx;
 
 const $ = id => document.getElementById(id);
 
+/** The calm lab look for the current story state (after a game over or a resume). */
+function resetAmbience() {
+  const rescued = game.s.flags.rescued, intro = game.s.flags.introDone;
+  ctx.mood.set({ light: rescued || !intro ? 1 : 0.85, gen: rescued || !intro ? 1 : 0.15, alarm: 0, flicker: 0 });
+  engine.scene.backgroundIntensity = 1; audio.sfx('wind', 0);
+}
+
 async function boot() {
   ctx.lab = await loadLab(engine);
   ctx.loco = createLocomotion(engine, input);
@@ -101,6 +108,7 @@ async function runGame() {
   if (!only && saved?.chapter && CH[saved.chapter] && game.loadSave()) {
     list = list.slice(list.indexOf(saved.chapter));
     game.spend(0);                 // refresh the O2 meter with the saved value
+    resetAmbience();
     if (game.s.flags.goggles) ctx.lab.props.P_goggles.visible = false;
   }
   if (only) seedFor(only);
@@ -171,7 +179,7 @@ async function gameOverPanel() {
   await s.waitSelect(btn.mesh);
   p.dispose(); btn.dispose();
   await engine.fade(1, 400);
-  ctx.mood.set({ light: before.light, alarm: before.alarm, gen: before.gen, flicker: 0 });
+  resetAmbience();
   await engine.fade(0, 600);
 }
 

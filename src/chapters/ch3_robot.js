@@ -84,7 +84,10 @@ export async function run(ctx, scope) {
   const outI = Math.floor(rng() * 3);
   const valuesFor = T => robotValues(T, rng, T === outT ? outI : null);
   // story events: Azoulay after the 1st temperature, a leaking stopper at the 2nd, the dust storm at the 4th
-  const leakT = runTemps[1] ?? null, stormT = runTemps.length > 3 ? runTemps[3] : runTemps[runTemps.length - 1];
+  // random but well-separated: the leak at the 2nd or 3rd temperature (never the planted-outlier one), the storm later
+  const leakIdx = [1, 2].filter(i => i < runTemps.length - 1 && runTemps[i] !== outT).sort(() => rng() - 0.5)[0] ?? 1;
+  const stormIdx = Math.min(runTemps.length - 1, leakIdx + 1 + Math.floor(rng() * Math.max(1, runTemps.length - leakIdx - 1)));
+  const leakT = runTemps[leakIdx] ?? null, stormT = runTemps[stormIdx];
   let n = 0, k = 0, leakDone = false, stormDone = false, azDone = false;
   const validAt = T => (game.s.trials[T] || []).filter(t => t.valid).length;
   for (const T of runTemps) {

@@ -65,22 +65,31 @@ export function createAudio(ui, { fast = false } = {}) {
   };
 
   const wait = ms => new Promise(r => setTimeout(r, fast ? Math.min(ms, 30) : ms));
-  let current = null;
+  let current = null;   // { el, finish } — the line now playing
 
   return {
     sfx(name, arg) { try { SFX[name]?.(arg); } catch { /* audio blocked */ } },
     unlock: ac,
-    /** Speak a line: subtitle always; mp3 if recorded. Resolves when done. */
-    async say(id) {
+    /** Speak a line: subtitle always; mp3 if recorded. Resolves when done — or when another line interrupts it. */
+    say(id) {
       const l = LINES[id];
-      if (!l) return;
+      if (!l) return Promise.resolve();
       const ms = Math.max(1600, l.text.split(/\s+/).length * 380);
-      ui.subtitles.show(l.speaker, l.text, ms + 600);
-      if (VOICE_AVAILABLE.has(id) && !fast) {
-        current?.pause();
-        const el = new Audio(`assets/voice/${id}.mp3`); current = el;
-        await new Promise(res => { el.onended = res; el.onerror = res; el.play().catch(res); });
-      } else await wait(ms);
+      if (current) { const c = current; current = null; try { c.el?.pause(); } catch { /* gone */ } c.finish(); }
+      if (!VOICE_AVAILABLE.has(id) || fast) {
+        ui.subtitles.show(l.speaker, l.text, ms + 600);
+        return wait(ms);
+      }
+      ui.subtitles.show(l.speaker, l.text, 60000);          // stays up until the voice actually ends
+      return new Promise(res => {
+        let done = false;
+        const me = { el: null, finish: () => { if (!done) { done = true; res(); } } };
+        const end = () => { if (current === me) { current = null; ui.subtitles.hide(); } me.finish(); };
+        const fallback = () => { if (current === me) { ui.subtitles.show(l.speaker, l.text, ms + 600); wait(ms).then(end); } };
+        const el = new Audio(`assets/voice/${id}.mp3`); me.el = el; current = me;
+        el.onended = end; el.onerror = fallback;
+        try { el.play()?.catch?.(fallback); } catch { fallback(); }
+      });
     },
     wait,
   };

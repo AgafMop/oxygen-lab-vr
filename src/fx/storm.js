@@ -12,14 +12,14 @@ void main(){
   vec2 p = vec2(vUv.x * 9.0, vUv.y * 3.0);
   float b = fbm(p + vec2(uTime*0.05, -uTime*0.12)) ;
   float top = 0.55 + 0.35 * fbm(vec2(vUv.x*6.0 + uTime*0.03, uTime*0.05));
-  float body = smoothstep(top, top - 0.25, vUv.y);
-  float edge = smoothstep(0.0, 0.12, vUv.x) * smoothstep(1.0, 0.88, vUv.x);
+  float body = 1.0 - smoothstep(top - 0.25, top, vUv.y);
+  float edge = smoothstep(0.0, 0.12, vUv.x) * (1.0 - smoothstep(0.88, 1.0, vUv.x));
   vec3 dark = vec3(0.22,0.10,0.05), lit = vec3(0.72,0.38,0.2);
   vec3 col = mix(dark, lit, b * (0.4 + 0.6 * vUv.y));
   gl_FragColor = vec4(col, body * edge * (0.75 + 0.25*b) * uOpacity);
 }`;
 
-export function createStorm(ctx, { center, azimuth = Math.PI * 0.6, arc = Math.PI * 0.9 } = {}) {
+export function createStorm(ctx, { center, azimuth = Math.PI * 0.6, arc = Math.PI * 0.9, particles = true } = {}) {
   const { engine } = ctx;
   const mat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, side: THREE.DoubleSide,
     uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } } });
@@ -34,7 +34,7 @@ export function createStorm(ctx, { center, azimuth = Math.PI * 0.6, arc = Math.P
   for (let i = 0; i < N; i++) { seed[i] = Math.random(); pos.set([(Math.random() - 0.5) * 40, Math.random() * 8, (Math.random() - 0.5) * 40], i * 3); }
   const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const pm = new THREE.PointsMaterial({ color: 0xc98a5a, size: 0.06, transparent: true, opacity: 0, depthWrite: false });
-  const pts = new THREE.Points(pg, pm); pts.position.copy(center); pts.frustumCulled = false; engine.scene.add(pts);
+  const pts = new THREE.Points(pg, pm); pts.position.copy(center); pts.frustumCulled = false; pts.visible = particles; engine.scene.add(pts);
 
   // brown-out overlay on the camera
   const ov = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.4), new THREE.MeshBasicMaterial({ color: 0x5a2e16, transparent: true, opacity: 0, depthTest: false, depthWrite: false }));

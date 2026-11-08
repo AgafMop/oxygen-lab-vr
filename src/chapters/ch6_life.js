@@ -37,7 +37,9 @@ async function loadCorridor(ctx) {
 
 export async function run(ctx, scope) {
   const { loco, robi, game, audio, ui, input, engine } = ctx;
-  const cor = await scope.guard(loadCorridor(ctx));
+  let cor;
+  try { cor = await scope.guard(loadCorridor(ctx)); }
+  catch (e) { if (scope.aborted) throw e; console.warn('corridor failed to load', e); return; }
   cor.root.visible = true;
   loco.setArea?.({ x0: 18.9, x1: 21.1, z0: 0.3, z1: 10.8, blocks: [] });
   scope.add(() => loco.setArea?.(null));

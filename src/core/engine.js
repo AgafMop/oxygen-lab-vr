@@ -60,6 +60,8 @@ export function createEngine(el) {
         });
       });
     },
+    /** Resolves after the next rendered frame (XR head pose is one frame behind a rig move). */
+    nextFrame() { return new Promise(r => { const off = engine.onFrame(() => { off(); r(); }); }); },
     /** World-space head position. */
     headPosition(target = new THREE.Vector3()) {
       return (renderer.xr.isPresenting ? renderer.xr.getCamera() : camera).getWorldPosition(target);

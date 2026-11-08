@@ -22,7 +22,7 @@ export async function run(ctx, scope) {
   // generator bubbles (inside the glass column)
   const gpos = lab.anchors.A_generator.getWorldPosition(new THREE.Vector3());
   const NB = 90, bub = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: 0xc8fff8, transparent: true, opacity: 0.7 }), NB);
-  bub.frustumCulled = false; engine.scene.add(bub); scope.add(bub);
+  bub.frustumCulled = false; engine.scene.add(bub); scope.add(() => { engine.scene.remove(bub); bub.dispose(); });
   const B = Array.from({ length: NB }, () => ({ p: new THREE.Vector3(), s: 0 }));
   const reset = b => { const a = Math.random() * 6.28, r = Math.random() * 0.36; b.p.set(gpos.x + Math.cos(a) * r, 0.25 + Math.random() * 0.2, gpos.z + Math.sin(a) * r); b.s = 0.01 + Math.random() * 0.02; };
   B.forEach(reset);
@@ -49,11 +49,12 @@ export async function run(ctx, scope) {
     return c;
   });
   const dial = lab.props.P_generatorDial;
+  let strength = 1;
   for (;;) {
     const T = await scope.guard(new Promise(r => { onPick = r; if (ctx.auto) setTimeout(() => input.select(chips[DIAL.indexOf(DIAL.reduce((a, c) => Math.abs(c - best) < Math.abs(a - best) ? c : a))].mesh), 60); }));
     chips.forEach(c => c.setState(c.mesh === chips[DIAL.indexOf(T)].mesh ? 'sel' : 'idle'));
     audio.sfx('click');
-    const strength = Math.min(1, trueRate(T) / trueRate(best));
+    strength = Math.min(1, trueRate(T) / trueRate(44));   // against the real optimum: data bent by a kept outlier shows
     azoulay.gesture('dial');
     await tween(900, k => { dial.rotation.z = -k * (T / 60) * Math.PI * 1.5; });
     await Promise.all([mood.to('gen', 0.15 + 0.85 * strength, 1500), tween(1500, k => { flow = strength * k; })]);
@@ -66,7 +67,7 @@ export async function run(ctx, scope) {
   if (first) game.markDecision(true);
   chips.forEach(c => c.dispose());
   audio.sfx('win');
-  await Promise.all([mood.to('alarm', 0, 1200), mood.to('light', 1, 1500), mood.to('gen', 1, 1500)]);
+  await Promise.all([mood.to('alarm', 0, 1200), mood.to('light', 1, 1500), mood.to('gen', 0.15 + 0.85 * strength, 1500)]);
   robi.face('wow');
   await scope.say('c5_ok');
   azoulay.gesture('slump');
@@ -74,6 +75,7 @@ export async function run(ctx, scope) {
   azoulay.gesture('unslump');
   await scope.say('c5_commander');
   game.s.flags.rescued = true;
+  game.s.o2 = Math.min(360, game.s.o2 + 90); game.spend(0);     // the generator refills the base reserve
   robi.face('happy');
   await scope.wait(ctx.auto ? 30 : 800);
   flow = 0.6;

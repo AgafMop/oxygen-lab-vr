@@ -17,7 +17,7 @@ export async function run(ctx, scope) {
   const { ui, loco, robi, game, audio, input, storage } = ctx;
   if (!game.s.mistakes.some(m => BENCH_MISTAKES.includes(m))) game.award('scientistHands');
   if (!game.s.flags.wrongRead) game.award('preciseReader');
-  if (game.s.o2 >= 45) game.award('o2Keepers');   // a lean 5-temperature plan plus both story redos ends at 60
+  if (game.s.o2 >= 45) game.award('o2Keepers');   // reachable with a lean plan even after both honest story redos
   const final = game.finalScore();
   window.__final = final;
   storage?.set('oxylab.v1', null);   // finished: next visit starts fresh
