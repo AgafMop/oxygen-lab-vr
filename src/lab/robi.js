@@ -9,7 +9,7 @@ export function createRobi(ctx) {
   const { engine, lab } = ctx;
   const R = lab.robi;
   const root = R.R_root, head = R.R_head, armL = R.R_armL, armR = R.R_armR, thr = R.R_thruster;
-  const tween = makeTween(engine, ctx.animSpeed ?? (ctx.auto ? 8 : 1));
+  const tween = makeTween(engine, () => ctx.animSpeed ?? (ctx.auto ? 8 : 1));
 
   // face screen (canvas) laid over R_face
   const c = document.createElement('canvas'); c.width = 512; c.height = 256;

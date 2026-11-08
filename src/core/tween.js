@@ -8,7 +8,7 @@ export const ease = {
 
 export function makeTween(engine, speed = 1) {
   return function tween(ms, fn, e = ease.inOut) {
-    const dur = Math.max(1, ms / speed);
+    const dur = Math.max(1, ms / (typeof speed === 'function' ? speed() : speed));
     return new Promise(res => {
       let t = 0;
       const off = engine.onFrame(dt => {

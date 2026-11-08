@@ -10,7 +10,7 @@ export function createHandling(ctx, app, { onAction }) {
   const { engine, input, lab, audio } = ctx;
   const { scene } = engine;
   const P = lab.props;
-  const tween = makeTween(engine, ctx.animSpeed ?? (ctx.auto ? 8 : 1));
+  const tween = makeTween(engine, () => ctx.animSpeed ?? (ctx.auto ? 8 : 1));
   const realTween = makeTween(engine, 1);      // stirring circles keep real speed so each frame's angle step stays small
   const TOOLS = [
     { obj: P.P_bottle3, kind: 'pour', bottle: '3', len: 0.15 },

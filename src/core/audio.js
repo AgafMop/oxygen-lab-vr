@@ -65,11 +65,13 @@ export function createAudio(ui, { fast = false } = {}) {
   };
 
   const wait = ms => new Promise(r => setTimeout(r, fast ? Math.min(ms, 30) : ms));
+  const setFast = v => { fast = v; };
   let current = null;   // { el, finish } — the line now playing
 
   return {
     sfx(name, arg) { try { SFX[name]?.(arg); } catch { /* audio blocked */ } },
     unlock: ac,
+    setFast,
     /** Speak a line: subtitle always; mp3 if recorded. Resolves when done — or when another line interrupts it. */
     say(id) {
       const l = LINES[id];

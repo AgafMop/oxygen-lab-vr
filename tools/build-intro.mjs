@@ -9,7 +9,7 @@ import { INTRO_VIDEO } from '../src/game/introVideo.js';
 const X = 0.5;                                   // crossfade length
 const SHOTS = [                                  // clip 3 was generated as an extension: its first 10 s repeat clip 2
   { file: 'intro/clips/1.mp4' }, { file: 'intro/clips/2.mp4', gain: 0.45 }, { file: 'intro/clips/3.mp4', ss: 'auto' },
-  { file: 'intro/clips/4.mp4' }, { file: 'intro/clips/5.mp4' },
+  { file: 'intro/clips/4.mp4', gain: 0.5 }, { file: 'intro/clips/5.mp4' },
 ];
 const LEN = 10;
 const probe = f => Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f]).toString());

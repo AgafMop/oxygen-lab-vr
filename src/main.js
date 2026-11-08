@@ -40,7 +40,7 @@ const audio = createAudio(ui, { fast: AUTO });
 const seed = Number(params.get('seed')) || (Date.now() % 100000);
 const storage = createStorage();
 const game = createGame({ seed, storage });
-const ctx = { engine, input, ui, audio, game, storage, ready: false, params, auto: AUTO, seed };
+const ctx = { engine, input, ui, audio, game, storage, ready: false, params, auto: AUTO, seed, demo: params.has('demo') };
 ctx.animSpeed = Number(params.get('animspeed')) || (AUTO ? 8 : 1);    // ?animspeed=1: auto choices at real animation speed
 if (TEST) {          // motion audit: a visible tracked object must not jump (> 5 cm per frame at real speed) outside a fade
   ctx.motionAudit = []; const tracked = new Map(), seenJump = new Set(), P = new THREE.Vector3();

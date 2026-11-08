@@ -482,3 +482,19 @@ test('chapter 6 auto: four life cases in the corridor, then back to the lab', as
   await expectTextFits(page);
   expect(errors).toEqual([]);
 });
+
+test('demo: the skip button runs the whole bench by itself and reads well', async ({ page }) => {
+  test.setTimeout(560_000);
+  const errors = await boot(page, '&demo&only=bench&seed=7');
+  await page.waitForFunction(() => !!window.__ctx.demoTurbo, null, { timeout: 120_000 });
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${SHOTS}/demo-buttons.png` });
+  await page.evaluate(() => window.__ctx.demoTurbo());
+  await page.waitForFunction(() => window.__chapterDone === 'bench', null, { timeout: 540_000 });
+  const s = await page.evaluate(() => ({ trials: window.__ctx.game.s.trials, auto: window.__ctx.auto }));
+  const own = Object.values(s.trials).map(l => l.filter(t => t.by === 'student' && t.valid).length).filter(n => n > 0);
+  expect(own).toEqual([3, 3]);
+  expect(s.auto).toBe(false);
+  await expectTextFits(page);
+  expect(errors).toEqual([]);
+});
