@@ -7,7 +7,7 @@ export const BADGES = {
   preciseReader: ['קוראים מדויקים', 'כל הקריאות נכונות בניסיון ראשון'],
   detective: ['בלשי מעבדה', 'זיהו מה קרה למדידה החריגה'],
   scienceSense: ['חוש מדעי', 'ההשערה התאימה לתוצאות'],
-  o2Keepers: ['שומרי חמצן', 'נשארו לפחות 90 דקות חמצן'],
+  o2Keepers: ['שומרי חמצן', 'נשארו לפחות 45 דקות חמצן'],
   stormCalm: ['קור רוח בסערה', 'פסלו ניסוי שנפגע בסופה'],
   lifeScience: ['מדע בחיים', '3 תשובות נכונות במסדרון'],
 };
@@ -17,7 +17,7 @@ export async function run(ctx, scope) {
   const { ui, loco, robi, game, audio, input, storage } = ctx;
   if (!game.s.mistakes.some(m => BENCH_MISTAKES.includes(m))) game.award('scientistHands');
   if (!game.s.flags.wrongRead) game.award('preciseReader');
-  if (game.s.o2 >= 90) game.award('o2Keepers');
+  if (game.s.o2 >= 45) game.award('o2Keepers');   // a lean 5-temperature plan plus both story redos ends at 60
   const final = game.finalScore();
   window.__final = final;
   storage?.set('oxylab.v1', null);   // finished: next visit starts fresh
