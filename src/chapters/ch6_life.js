@@ -43,8 +43,12 @@ export async function run(ctx, scope) {
   cor.root.visible = true;
   loco.setArea?.({ x0: 18.9, x1: 21.1, z0: 0.3, z1: 10.8, blocks: [] });
   scope.add(() => loco.setArea?.(null));
-  await loco.goTo('corr');
-  robi.placeNear(loco.stations.corr.pos, new THREE.Vector3(0.6, 0, 0.9));
+  // Robi crosses to the corridor while the screen is dark, together with the student
+  await engine.fade(1, 250);
+  await loco.goTo('corr', { fade: false });
+  robi.placeNear(loco.stations.corr.pos, new THREE.Vector3(0.6, 0, 0.9), { instant: true });
+  await engine.nextFrame();
+  await engine.fade(0, 300);
   await scope.say('c6_intro');
 
   let firstTryCorrect = 0;
