@@ -6,7 +6,7 @@ const GAMEOVER_SCORE = 100;
 
 const fresh = seed => ({
   seed, chapter: null, o2: O2_START, score: 0, hypothesis: null, plan: [], trials: {},
-  badges: [], mistakes: [], flags: {}, over: false,
+  badges: [], mistakes: [], flags: {}, notes: [], over: false,
 });
 
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -41,6 +41,9 @@ export function createGame({ seed, storage }) {
     markDecision(ok) {
       if (ok) game.addScore(100); else game.s.flags.decisionWrong = true;
     },
+
+    /** A line in the student's lab notebook (src/ui/notebook.js). */
+    note(text) { (game.s.notes ||= []).push(text); emit('note', text); },
 
     award(badge) { if (!game.s.badges.includes(badge)) game.s.badges.push(badge); },
 

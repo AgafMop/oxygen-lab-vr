@@ -46,6 +46,29 @@ test('review #3: text that does not fit its box is reported even inside the canv
   expect(errors).toEqual([]);
 });
 
+test('notebook: hypothesis, protocol, results with a struck reading, log and conclusion; flips and closes', async ({ page }) => {
+  const errors = await boot(page, '&nogame');
+  const titles = await page.evaluate(() => {
+    const { game, notebook } = window.__ctx;
+    game.s.chapter = 'graph'; game.s.flags.notebook = true; game.s.hypothesis = 'peak';
+    game.s.hypSentence = { text: 'כאשר הטמפרטורה תעלה, כמות החמצן תעלה.' };
+    [[20, 11], [20, 5.5, 'leak'], [20, 11.5], [40, 40.5], [40, 41.5], [40, 39.5]].forEach(([T, v, r]) => game.addTrial(T, { volume: v, by: 'student', valid: !r, reason: r }, { free: true }));
+    game.note('ד״ר אזולאי כיוונה את המחולל ל-60° בלי לבדוק, והחמצן צנח!');
+    game.s.peakPick = 40;
+    notebook.sync(); notebook.open(0);
+    return notebook.pages().map(p => p.title);
+  });
+  expect(titles).toEqual(['השערת המחקר', 'מהלך הניסוי', 'תוצאות: נפח החמצן (מ״ל) בכל מדידה', 'יומן המעבדה', 'מסקנה']);
+  for (let i = 0; i < 4; i++) await page.evaluate(() => window.__ctx.notebook.flip(1));
+  expect(await page.evaluate(() => window.__ctx.notebook.page)).toBe(4);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${SHOTS}/notebook.png` });
+  await expectTextFits(page);
+  await page.click('#notebookBtn');                       // desktop HUD button toggles it
+  expect(await page.evaluate(() => window.__ctx.notebook.isOpen)).toBe(false);
+  expect(errors).toEqual([]);
+});
+
 test('boots and teleports', async ({ page }) => {
   const errors = await boot(page, '&nogame');
   await page.waitForTimeout(800);
@@ -103,6 +126,7 @@ test('chapter 1 auto', async ({ page }) => {
   await page.waitForFunction(() => window.__chapterDone === 'hypothesis', null, { timeout: 150_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
   expect(s.hypothesis).toBe('peak');
+  expect(s.hypSentence.text).toBe('כאשר הטמפרטורה תעלה, כמות החמצן תעלה.');   // the research hypothesis, written before the graph
   expect(s.flags.varsFirstTry).toBe(true);
   await expectTextFits(page);
   expect(errors).toEqual([]);
@@ -125,6 +149,8 @@ test('chapter 2 auto: two chosen temperatures × three repeats, a built-in leak 
   expect(own(s, 20).length).toBe(4);
   expect(s.o2).toBe(360 - 15 * 7);
   expect(await page.evaluate(() => window.__ctx.why3Shown)).toBe(3);   // 20° twice (before and after the redo) + 40°
+  expect(s.flags.notebook).toBe(true);                     // Robi introduced the notebook after the first good reading
+  expect(await page.evaluate(() => window.__ctx.notebook.isOpen)).toBe(false);
   await page.screenshot({ path: `${SHOTS}/ch2-done.png` });
   await expectTextFits(page);
   expect(errors).toEqual([]);

@@ -67,6 +67,7 @@ export async function run(ctx, scope) {
     await scope.say('c5_weak');
   }
   if (first) game.markDecision(true);
+  game.note(`כיוונו את המחולל לפי הגרף, והבסיס ניצל!`);
   chips.forEach(c => c.dispose());
   audio.sfx('win');
   await Promise.all([mood.to('alarm', 0, 1200), mood.to('light', 1, 1500), mood.to('gen', 0.15 + 0.85 * strength, 1500)]);

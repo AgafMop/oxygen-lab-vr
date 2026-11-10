@@ -7,17 +7,15 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 export const TUNE = {
   lightMapIntensity: 2 * Math.PI * 0.22,  // bake saved at 0.5 scale; tuned by eye (ACES)
-  // env intensities only count because each material owns its envMap (see the end of loadLab); staticEnv 0.5 keeps the
-  // bench as bright as before the fix (was silently 1) with more baked depth elsewhere
-  staticEnv: 0.5, detailEnv: 0.55, propEnv: 0.9, exposure: 1.0,
+  staticEnv: 0.08, detailEnv: 0.55, propEnv: 0.9, exposure: 1.0,
 };
 
 // where each prop sits (anchor + offset in three coords, metres)
 const PLACE = {
   P_bath: ['A_bath'], P_flask: ['A_flask'], P_trough: ['A_trough'], P_cylinder: ['A_cylinder'],
   P_stand: ['A_trough', [-0.2, 0, 0.02]], P_thermometer: ['A_bath', [0.12, 0.02, 0.07]],
-  // bottles pulled toward the centre (side by side behind the bath) so both read on desktop
-  P_bottle3: ['A_bottle3', [-0.3, 0, -0.26]], P_bottle30: ['A_bottle30', [-0.2, 0, -0.08]], P_yeastJar: ['A_yeastJar'], P_spoon: ['A_spoon'],
+  // bottles pulled toward the centre, side by side just right of the bath's back corner (clear of its rim) so both read on desktop
+  P_bottle3: ['A_bottle3', [-0.18, 0, -0.32]], P_bottle30: ['A_bottle30', [-0.2, 0, -0.08]], P_yeastJar: ['A_yeastJar'], P_spoon: ['A_spoon'],
   P_rod: ['A_rod'], P_stopperTube: ['A_stopperTube'], P_stopperSealed: ['A_stopperSealed'], P_timer: ['A_timer'],
   P_goggles: ['A_goggleRack', [0.08, 0.02, 0]],        // on the rack, where the line sends the student (highlighted while needed)
   P_generatorTank: ['A_generator'], P_generatorGlass: ['A_generator'], P_generatorLiquid: ['A_generator'],
@@ -152,14 +150,5 @@ export async function loadLab(engine, base = 'assets/') {
     o.material = new THREE.MeshStandardMaterial({ color: 0x2c5566, transparent: true, opacity: 0.9, roughness: 0.12, metalness: 0.1, envMapIntensity: 1.4 });
     o.renderOrder = 2; } });
   if (P.P_rod) { P.P_rod.scale.y *= 1.6; P.P_rod.scale.z *= 1.6; }      // thicker (it lies along its local x)
-
-  // three r163+: with only scene.environment, material.envMapIntensity is ignored (scene.environmentIntensity is used
-  // for every material), so the TUNE.*Env values and the glass/liquid intensities above did nothing. Giving each
-  // material the env map itself makes its own envMapIntensity count. (scene.environment stays as the default.)
-  const env = scene.environment;
-  const ownEnv = obj => obj?.traverse(o => {
-    if (o.isMesh) for (const m of [].concat(o.material)) if (m.isMeshStandardMaterial && !m.envMap) { m.envMap = env; m.needsUpdate = true; }
-  });
-  [root, glass, robiRoot, crew.scene, crewF.scene].forEach(ownEnv);
-  return { env, root, anchors, stationNodes, discs, screens, alarms, props: P, robi: R, glass, dust, crewScene: crew.scene, crewFScene: crewF.scene, alarmLight };
+  return { root, anchors, stationNodes, discs, screens, alarms, props: P, robi: R, glass, dust, crewScene: crew.scene, crewFScene: crewF.scene, alarmLight };
 }

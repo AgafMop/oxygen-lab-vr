@@ -27,6 +27,7 @@ import * as ch6 from './chapters/ch6_life.js';
 import { SAVE_KEY } from './game/config.js';
 import { createIntroVideo, primeIntroVideo } from './fx/introCinema.js';
 import { isClear } from './lab/clearance.js';
+import { createNotebook } from './ui/notebook.js';
 
 const CH = { intro: ch0, hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4, rescue: ch5, life: ch6, end: chEnd };
 const CH_NAMES = { intro: 'פתיחה', rescue: 'הצלת הבסיס', life: 'מסדרון החיים', hypothesis: 'תדריך והשערה', bench: 'הניסוי בידיים', robot: 'רובי מריץ ניסויים', graph: 'הגרף והאנזים', end: 'סיכום' };
@@ -148,6 +149,7 @@ async function boot() {
   ctx.robi = createRobi(ctx);
   ctx.mood = createMood(ctx);
   createLabSigns(ctx);
+  ctx.notebook = createNotebook(ctx);
   ctx.robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45), { instant: true });
   await ui.fontsReady;
   $('enter').disabled = false; $('enter').textContent = 'כניסה במחשב';
@@ -207,7 +209,8 @@ function seedFor(id) {
   const order = CHAPTERS.indexOf(id);
   if (order > CHAPTERS.indexOf('intro')) { game.s.flags.introDone = true; ctx.mood.set({ light: 0.85, gen: 0.15 }); }
   if (order > CHAPTERS.indexOf('bench')) {
-    game.s.hypothesis ??= 'peak'; game.s.flags.goggles = true;
+    game.s.hypothesis ??= 'peak'; game.s.flags.goggles = true; game.s.flags.notebook = true;
+    game.s.hypSentence ??= { iv: 'הטמפרטורה', ivDir: 'תעלה', dv: 'כמות החמצן', dvDir: 'תעלה', text: 'כאשר הטמפרטורה תעלה, כמות החמצן תעלה.' };
     // two hand temperatures × three repeats; ?handUnmixed=T / ?handLeak=T make the 2nd repeat there a kept deviating reading
     const unmixedAt = Number(params.get('handUnmixed')) || null, leakAt = Number(params.get('handLeak')) || null;
     for (const [T, vs] of [[20, [11, 11.5, 10.5]], [40, [40.5, 41.5, 39.5]]]) vs.forEach((v, i) => {

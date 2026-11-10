@@ -25,7 +25,6 @@ async function loadCorridor(ctx) {
     if (!o.isMesh) return;
     let p = o; while (p && !p.name.startsWith('CORR_')) p = p.parent;
     const m = o.material;
-    m.envMap = ctx.lab.env;            // own env map, or envMapIntensity is ignored (three r163+, see labScene.js)
     if (p?.name.replace(/_\d+$/, '') === 'CORR_static') { m.lightMap = lm; m.lightMapIntensity = TUNE.lightMapIntensity; m.envMapIntensity = TUNE.staticEnv; }
     else m.envMapIntensity = TUNE.detailEnv;
   });

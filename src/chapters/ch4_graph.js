@@ -76,6 +76,7 @@ export async function run(ctx, scope) {
   const chosen = await scope.guard(peaked);
   graph.pickMode(false);
   game.s.peakPick = chosen;
+  game.note(`בגרף: הכי הרבה חמצן בסביבות ${chosen}°.`);
   if (firstPeak) game.markDecision(true);
   robi.face('wow');
   await scope.say('c4_peak_ok');

@@ -9,6 +9,15 @@ import { boardAtStation } from './kit.js';
 import { createGraphWall } from '../ui/graphWall.js';
 import { createHandling } from '../lab/handling.js';
 
+// what the student's notebook records after a teaching failure (src/ui/notebook.js)
+const FAIL_NOTE = {
+  splash: 'בלי משקפי מגן, מי חמצן ניתזו. מעכשיו תמיד משקפיים.',
+  sealedBlast: 'פקק אטום: הלחץ העיף את הפקק. לגז חייב להיות מוצא.',
+  elephantToothpaste: 'יותר מדי שמרים: הר קצף. בניסוי הוגן הכמות קבועה.',
+  acidMelt: 'כמעט השתמשתי במי חמצן 30%, הם מאכלים! רק 3%.',
+  boil: 'אמבט רותח: אין בועות. בחום כזה הקטלאז משנה צורה.',
+  cylinderNotFilled: 'המשורה לא הייתה מלאה, אז אי אפשר למדוד. ממלאים עד הסוף.',
+};
 const STEP_LINE = { fillCylinder: 'c2_fill', pour: 'c2_pour', yeast: 'c2_yeast', stir: 'c2_stir', stopper: 'c2_stopper', timer: 'c2_timer', read: 'c2_read' };
 
 export async function run(ctx, scope) {
@@ -66,6 +75,7 @@ export async function run(ctx, scope) {
     if (fail === 'elephantToothpaste' && a.type === 'stir' && !physical) await app.stir();
     await app.fx[fail]();
     await scope.say('fail_' + fail);
+    if (FAIL_NOTE[fail]) game.note(FAIL_NOTE[fail]);
     robi.face('happy');
     if (fail === 'sealedBlast' || fail === 'elephantToothpaste') { app.clearFx(); app.emptyFlask(); }
     if (fail === 'cylinderNotFilled') app.reset();
@@ -294,7 +304,7 @@ export async function run(ctx, scope) {
       app.hint(null);
       valid = d.valid;
       if (valid && isLeak) game.s.flags.handLeak = true;
-      if (valid && done === 0) { robi.face('wow'); await scope.say('c2_warm'); robi.face('happy'); }
+      if (valid && done === 0) { robi.face('wow'); await scope.say('c2_warm'); robi.face('happy'); await ctx.notebook?.introduce(scope); }
       await scope.wait(ctx.auto ? 50 : 1100);   // let the reading board clear before the next board
     }
     if (ownValid(curT).length >= HAND_REPEATS) {

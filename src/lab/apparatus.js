@@ -93,9 +93,11 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
   const tDisp = timer ? ui.panel({ w: 0.068, h: 0.026, ppm: 4000, viewDist: 0.6, name: 'timerDisplay', draw(g, W, H, s = 60) {
     g.fillStyle = '#0d1d18'; g.fillRect(0, 0, W, H); g.direction = 'ltr'; g.fillStyle = '#5fffc0';
     g.font = `700 ${H * 0.8}px "IBM Plex Mono", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(`00:${String(Math.ceil(s)).padStart(2, '0')}`, W / 2, H / 2 + 4);
+    const sec = Math.max(0, Math.ceil(s - 1e-6));
+    g.fillText(`${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`, W / 2, H / 2 + 4);
   } }) : null;
-  if (tDisp) { tDisp.mesh.position.set(0, 0.035, 0.0262); timer.add(tDisp.mesh); }
+  // just in front of the model's own (blank) screen: at its depth the two z-fought and the digits never showed
+  if (tDisp) { tDisp.mesh.position.set(0, 0.035, 0.0285); timer.add(tDisp.mesh); }
   const bDisp = ui.panel({ w: 0.088, h: 0.044, ppm: 3000, viewDist: 0.6, name: 'bathDisplay', draw(g, W, H, t = 22, target = null) {
     g.fillStyle = '#0d1d18'; g.fillRect(0, 0, W, H); g.direction = 'ltr'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = '#ffb36b'; g.font = `700 ${H * 0.46}px "IBM Plex Mono", monospace`; g.fillText(`${t.toFixed(1)}°`, W / 2, H * 0.34);
@@ -315,7 +317,7 @@ export function createApparatus(ctx, { at = 'bench', speed = 1 } = {}) {
     emptyFlask() {
       flaskLiq.visible = false; flaskLiq.material.color.set(0xbfe3ff); flaskLiq.material.opacity = 0.55; flaskLiq.userData = {};
       yeastLayer.scale.set(1, 1, 1); yeastLayer.visible = false; yeastLayer.userData.n = 0; yeastLayer.scale.y = 1; foamTop.visible = false;
-      tubeMesh.visible = false; if (app.stopper) goHome(app.stopper); app.stopper = null;
+      tubeMesh.visible = false; if (app.stopper) goHome(app.stopper); app.stopper = null; tDisp?.redraw(60);
     },
     /** Pulse a prop's emissive and float an arrow over it (null clears). */
     hint(obj) {

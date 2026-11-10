@@ -12,9 +12,12 @@ const validBy = (game, T, by) => (game.s.trials[T] || []).filter(t => t.valid &&
 export function skipFill(game, id, rng) {
   const s = game.s;
   if (id === 'intro') s.flags.introDone = true;
-  if (id === 'hypothesis') s.hypothesis ??= 'peak';
+  if (id === 'hypothesis') {
+    s.hypothesis ??= 'peak';
+    s.hypSentence ??= { iv: 'הטמפרטורה', ivDir: 'תעלה', dv: 'כמות החמצן', dvDir: 'תעלה', text: 'כאשר הטמפרטורה תעלה, כמות החמצן תעלה.' };
+  }
   if (id === 'bench') {
-    s.flags.goggles = true;
+    s.flags.goggles = true; s.flags.notebook = true;
     const temps = game.handTemps();
     for (const T of HAND_DEFAULT) if (temps.length < HAND_TEMP_COUNT && !temps.includes(T)) temps.push(T);
     for (const T of temps.slice(0, HAND_TEMP_COUNT)) {

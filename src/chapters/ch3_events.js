@@ -49,6 +49,7 @@ export async function azoulayScene(ctx, scope) {
   await az.turnTo(st); await az.gesture('shrug');
   await scope.say('azoulay_4');
   await scope.say('azoulay_5');
+  ctx.game.note('ד״ר אזולאי כיוונה את המחולל ל-60° בלי לבדוק, והחמצן צנח!');
   await Promise.all([tween(700, k => { dial.rotation.z = -Math.PI * 1.5 * (1 - k); }), mood.to('gen', 0.15, 1500), mood.to('alarm', 0, 1500)]);
   az.dispose(); cmd.dispose();
   ctx.storyPhase = null;
