@@ -207,16 +207,21 @@ export function createNotebook(ctx) {
       game.s.flags.notebook = true; nb.sync();
       ctx.app?.hint(book);
       scope.add(() => ctx.app?.hint(null));
-      await scope.say('nb_intro');
+      // the waits are armed before Robi speaks: a click that lands mid-line still counts (it used to be lost and the
+      // experiment stalled), and closing the book cuts his last line short so the next step follows at once
       const opened = new Promise(r => waiters.open.push(r));
+      await Promise.race([scope.say('nb_intro'), scope.guard(opened)]);
       if (ctx.auto) setTimeout(() => nb.open(), 200);
-      await Promise.race([scope.say('nb_open').then(() => scope.guard(opened)), scope.guard(opened)]);
+      if (!openG) await Promise.race([scope.say('nb_open').then(() => scope.guard(opened)), scope.guard(opened)]);
+      else ctx.audio.stop();
       ctx.app?.hint(null);
+      if (!openG) return;                           // opened and already closed again during the line
       page = Math.max(0, notebookPages(game.s).findIndex(p => p.kind === 'table')); redraw();
-      await scope.say('nb_tip');
       const closed = new Promise(r => waiters.close.push(r));
       if (ctx.auto) setTimeout(() => nb.close(), 200);
-      await scope.guard(closed);
+      let shut = false;
+      await Promise.race([scope.say('nb_tip'), scope.guard(closed).then(() => { shut = true; })]);
+      if (shut) ctx.audio.stop(); else await scope.guard(closed);
     },
   };
   game.on('chapter', () => nb.sync());
