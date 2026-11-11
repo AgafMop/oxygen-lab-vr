@@ -306,11 +306,32 @@ export async function run(ctx, scope) {
       if (valid && isLeak) game.s.flags.handLeak = true;
       if (valid && done === 0) { robi.face('wow'); await scope.say('c2_warm'); robi.face('happy'); await ctx.notebook?.introduce(scope); }
       await scope.wait(ctx.auto ? 50 : 1100);   // let the reading board clear before the next board
+      if (valid && done === 1) await controlNote();   // after the second hand measurement
     }
     if (ownValid(curT).length >= HAND_REPEATS) {
       await why3(curT);
       if (ownValid(curT).length >= HAND_REPEATS) curT = null;   // a disqualified reading → one more repeat here
     }
+  }
+
+  // ---- after the second hand measurement: a note on the control group (text card, no voice) ----
+  async function controlNote() {
+    const b = boardAtStation(ctx, scope, 'bench', { dist: 0.72, height: 1.3 });
+    const card = scope.add(ui.panel({ w: 0.56, h: 0.3, name: 'controlNote', draw(g, W, H) {
+      ui.rr(g, 4, 4, W - 8, H - 8, 26); g.fillStyle = 'rgba(12,18,30,0.96)'; g.fill(); g.lineWidth = 6; g.strokeStyle = ui.C.oxy; g.stroke();
+      const min = ui.minPx(900);
+      g.fillStyle = ui.C.oxy; ui.fitText(g, 'קבוצת ביקורת', { x: W * 0.05, y: H * 0.06, w: W * 0.9, h: H * 0.22, maxPx: H * 0.15, minPx: min, font: ui.FONT });
+      g.fillStyle = ui.C.ink; ui.fitText(g, 'כדי לקיים קבוצת ביקורת, במקביל לכל מדידה מתבצעת גם מדידת חמצן לשמרים בטמפרטורה של 30 מעלות.', { x: W * 0.07, y: H * 0.32, w: W * 0.86, h: H * 0.6, maxPx: H * 0.12, minPx: min, weight: 500, font: ui.FONT });
+    } }));
+    b.add(card.mesh);
+    let ok;
+    const pressed = new Promise(r => { ok = r; });
+    const btn = scope.add(ui.button3d('הבנתי', () => ok(), { w: 0.2, h: 0.075 }));
+    btn.mesh.position.set(0, -0.2, 0.01); b.add(btn.mesh);
+    audio.sfx('click');
+    if (ctx.auto) setTimeout(() => ok(), 200);
+    await scope.guard(pressed);
+    btn.dispose(); card.dispose(); b.parent?.remove(b);
   }
 
   // ---- "why measure three times?": the three readings side by side; a deviating one is ringed ----
