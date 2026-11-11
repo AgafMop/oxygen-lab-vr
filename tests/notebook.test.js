@@ -38,3 +38,16 @@ test('log pages hold at most 7 notes; the conclusion appears once the peak is fo
 test('numbers with units are bidi-isolated', () => {
   assert.equal(iso('ב-40°'), 'ב-⁦40°⁩');
 });
+
+import { shapeOf, DEFAULT_SENTENCE } from '../src/game/hypothesis.js';
+
+test('the graph a hypothesis sentence describes (oxygen against rising temperature)', () => {
+  assert.equal(shapeOf({ ivDir: 'תעלה', dvDir: 'תעלה' }), 'rise');
+  assert.equal(shapeOf({ ivDir: 'תרד', dvDir: 'תרד' }), 'rise');
+  assert.equal(shapeOf({ ivDir: 'תעלה', dvDir: 'תרד' }), 'fall');
+  assert.equal(shapeOf({ ivDir: 'תרד', dvDir: 'תעלה' }), 'fall');
+  assert.equal(shapeOf({ ivDir: 'תעלה', dvDir: 'תעלה ואז תרד' }), 'peak');
+  assert.equal(shapeOf({ ivDir: 'תרד', dvDir: 'לא תשתנה' }), 'flat');
+  assert.equal(DEFAULT_SENTENCE.text, 'כאשר הטמפרטורה תעלה, כמות החמצן תעלה ואז תרד.');
+  assert.equal(shapeOf(DEFAULT_SENTENCE), 'peak');
+});

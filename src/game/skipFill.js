@@ -2,6 +2,7 @@
 // (from the same science model), so every later chapter has what it needs.
 import { robotValues } from './model.js';
 import { HAND_TEMP_COUNT, HAND_REPEATS } from './config.js';
+import { DEFAULT_SENTENCE } from './hypothesis.js';
 
 const HAND_DEFAULT = [20, 40, 30, 50];
 const ROBOT_DEFAULT = [10, 30, 50, 60, 70];
@@ -14,7 +15,7 @@ export function skipFill(game, id, rng) {
   if (id === 'intro') s.flags.introDone = true;
   if (id === 'hypothesis') {
     s.hypothesis ??= 'peak';
-    s.hypSentence ??= { iv: 'הטמפרטורה', ivDir: 'תעלה', dv: 'כמות החמצן', dvDir: 'תעלה', text: 'כאשר הטמפרטורה תעלה, כמות החמצן תעלה.' };
+    s.hypSentence ??= { ...DEFAULT_SENTENCE };
   }
   if (id === 'bench') {
     s.flags.goggles = true; s.flags.notebook = true;

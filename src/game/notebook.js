@@ -4,7 +4,7 @@ const LRI = String.fromCharCode(0x2066), PDI = String.fromCharCode(0x2069);
 /** Numbers (with ° or %) inside Hebrew canvas text, isolated so "37°" doesn't draw as "°37". */
 export const iso = t => String(t).replace(/\d+(?:\.\d+)?(?:\s?[°%])?/g, m => LRI + m + PDI);
 
-const GRAPH = { rise: 'כמה שיותר חם, יותר חמצן', peak: 'עולה ואז יורד', flat: 'לא משתנה' };
+const GRAPH = { rise: 'עולה (ככל שחם יותר, יותר חמצן)', fall: 'יורד (ככל שחם יותר, פחות חמצן)', peak: 'עולה ואז יורד', flat: 'לא משתנה' };
 const REASON = { leak: 'דליפה בפקק', storm: 'האמבט התקרר בסופה', unmixed: 'לא עורבב', error: 'מדידה חריגה' };
 export const PROTOCOL = [
   'מרכיבים משקפי מגן.',

@@ -82,6 +82,38 @@ export function boardAtStation(ctx, scope, stationId, { dist = 1.0, height = 1.2
   return g;
 }
 
+/** A solid board: a rounded slab with depth (lit by the room) behind an opaque canvas face drawn by `draw`. */
+export function slab(ctx, scope, parent, { w, h, r = 0.03, ppm = 1400, viewDist = 0.8, name = 'slab', draw, y = 0 }) {
+  const s = new THREE.Shape(), x0 = -w / 2, y0 = -h / 2;
+  s.moveTo(x0 + r, y0); s.lineTo(x0 + w - r, y0); s.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + r); s.lineTo(x0 + w, y0 + h - r);
+  s.quadraticCurveTo(x0 + w, y0 + h, x0 + w - r, y0 + h); s.lineTo(x0 + r, y0 + h); s.quadraticCurveTo(x0, y0 + h, x0, y0 + h - r);
+  s.lineTo(x0, y0 + r); s.quadraticCurveTo(x0, y0, x0 + r, y0);
+  const geo = new THREE.ExtrudeGeometry(s, { depth: 0.012, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 2, curveSegments: 8 });
+  geo.translate(0, 0, -0.018);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x1b2a44, roughness: 0.45, metalness: 0.35 });
+  const body = new THREE.Mesh(geo, mat); body.position.y = y; parent.add(body);
+  const face = ctx.ui.panel({ w, h, ppm, viewDist, name, draw: (g, W, H) => {
+    g.save(); ctx.ui.rr(g, 0, 0, W, H, r * ppm); g.clip(); draw(g, W, H); g.restore();
+  } });
+  // opaque (cut-out corners): drawn in the opaque pass, so the cards and buttons on it never show the slab through their margins
+  Object.assign(face.mesh.material, { transparent: false, alphaTest: 0.5 }); face.mesh.material.needsUpdate = true;
+  face.mesh.position.set(0, y, 0); parent.add(face.mesh);
+  scope.add(() => { body.parent?.remove(body); geo.dispose(); mat.dispose(); });
+  scope.add(face);
+  return face;
+}
+
+/** Board face background shared by the hypothesis boards: deep blue, a header band with a teal rule. */
+export function paintBoard(g, W, H, headH) {
+  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#1A2B4C'); bg.addColorStop(1, '#0C1527');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const hb = g.createLinearGradient(0, 0, 0, headH); hb.addColorStop(0, '#22406A'); hb.addColorStop(1, '#1A3157');
+  g.fillStyle = hb; g.fillRect(0, 0, W, headH);
+  const rule = g.createLinearGradient(0, 0, W, 0);
+  rule.addColorStop(0, 'rgba(60,196,188,0)'); rule.addColorStop(0.5, 'rgba(60,196,188,1)'); rule.addColorStop(1, 'rgba(60,196,188,0)');
+  g.fillStyle = rule; g.fillRect(0, headH - 4, W, 4);
+}
+
 /** Lay out panels/cards in a row on a board (RTL: first item on the right). */
 export function row(group, items, { y = 0, gap = 0.04, z = 0.01 } = {}) {
   const ws = items.map(it => it.mesh.geometry.parameters.width);
@@ -105,7 +137,7 @@ export const ICON = {
       g.strokeStyle = OXY; g.lineWidth = 12; g.lineCap = 'round'; g.beginPath();
       const X = t => x + 20 + t * (w - 30), Y = v => y + h - 10 - v * (h - 20);
       // math convention (as in Israeli textbooks): temperature grows to the right
-      const pts = shape === 'rise' ? [[0, 0.08], [0.5, 0.4], [1, 0.95]] : shape === 'flat' ? [[0, 0.5], [0.5, 0.5], [1, 0.5]] : [[0, 0.1], [0.55, 0.95], [1, 0.12]];
+      const pts = shape === 'rise' ? [[0, 0.08], [0.5, 0.4], [1, 0.95]] : shape === 'fall' ? [[0, 0.95], [0.5, 0.4], [1, 0.08]] : shape === 'flat' ? [[0, 0.5], [0.5, 0.5], [1, 0.5]] : [[0, 0.1], [0.55, 0.95], [1, 0.12]];
       const map = ([t, v]) => [X(t), Y(v)];
       const [a, b, c] = pts.map(map);
       g.moveTo(...a); g.quadraticCurveTo(b[0], shape === 'peak' ? b[1] - h * 0.45 : b[1], ...c); g.stroke();

@@ -96,8 +96,9 @@ export function createUI(engine, input, { audit = false } = {}) {
       w, h, ppm, viewDist, name: `${name}:${label}`, draw(g, W, H) {
         const fill = { sel: C.sel, right: '#1C4D36', wrong: '#5A2420' }[state] || C.bg2;
         const stroke = { sel: C.oxy, right: C.good, wrong: C.bad }[state] || (hover ? C.ink : C.line);
+        rr(g, 6, 6, W - 12, H - 12, 28); g.fillStyle = fill; g.fill();      // the card itself stays opaque when dimmed
         g.globalAlpha = state === 'off' ? 0.35 : 1;
-        rr(g, 6, 6, W - 12, H - 12, 28); g.fillStyle = fill; g.fill(); g.lineWidth = hover ? 12 : 7; g.strokeStyle = stroke; g.stroke();
+        g.lineWidth = hover ? 12 : 7; g.strokeStyle = stroke; g.stroke();
         const labelH = !label ? 0 : icon ? Math.min(H * 0.26, 110) : H;
         if (icon) { g.save(); icon(g, 30, 30, W - 60, H - 60 - labelH); g.restore(); }
         if (label) {
@@ -123,13 +124,12 @@ export function createUI(engine, input, { audit = false } = {}) {
     const ppm = Math.max(900, Math.round(200 / h));
     const p = panel({
       w, h, ppm, viewDist, name: `button:${label}`, draw(g, W, H) {
-        g.globalAlpha = enabled ? 1 : 0.35;
+        // disabled: a solid grey button (never see-through)
         rr(g, 4, 4, W - 8, H - 8, H / 3);
-        g.fillStyle = style === 'primary' ? C.mars : C.bg2; g.fill();
-        g.lineWidth = hover ? 8 : 4; g.strokeStyle = hover ? C.ink : (style === 'primary' ? C.mars : C.line); g.stroke();
-        g.fillStyle = '#fff';
+        g.fillStyle = !enabled ? '#252F43' : style === 'primary' ? C.mars : C.bg2; g.fill();
+        g.lineWidth = hover && enabled ? 8 : 4; g.strokeStyle = !enabled ? '#36425B' : hover ? C.ink : (style === 'primary' ? C.mars : C.line); g.stroke();
+        g.fillStyle = enabled ? '#fff' : '#7F8BA3';
         fitText(g, label, { x: H * 0.3, y: H * 0.1, w: W - H * 0.6, h: H * 0.8, maxPx: Math.round(H * 0.42), minPx: minPx(ppm, viewDist), font: FONT });
-        g.globalAlpha = 1;
       },
     });
     input.register(p.mesh, { onSelect: () => enabled && onSelect(), onHover: on => { hover = on; p.redraw(); }, noHighlight: true });

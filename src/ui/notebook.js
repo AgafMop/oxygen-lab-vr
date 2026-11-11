@@ -1,5 +1,6 @@
-// The student's lab notebook: a closed notebook that rides beside the seated student (desk height, on the left),
-// introduced by Robi after the first good measurement. A click opens it in front of the head; it records the
+// The student's lab notebook: a closed notebook with a fixed home at each station — on the bench desk in a clear
+// spot, elsewhere on a small stand beside the seat (it never turns with the student) — introduced by Robi after the
+// first good measurement. A click opens it in front of the head, where it stays; it records the
 // hypothesis, the variables, the protocol, the results table (disqualified readings struck through), a log of what
 // happened and — once the graph is read — the conclusion. Pages are rebuilt from the game state, so nothing is lost.
 import * as THREE from 'three';
@@ -39,7 +40,7 @@ export function createNotebook(ctx) {
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 12), metal);
   const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.012, 24), metal);
   stand.add(pole, foot); book.add(stand);
-  const rc = new THREE.Raycaster(), lastAt = new THREE.Vector3(1e9, 0, 0);
+  const rc = new THREE.Raycaster();
   function fitStand() {
     rc.set(new THREE.Vector3(book.position.x, book.position.y + 0.02, book.position.z), new THREE.Vector3(0, -1, 0)); rc.far = 2;
     const hit = rc.intersectObject(ctx.lab.root, true)[0];
@@ -50,18 +51,27 @@ export function createNotebook(ctx) {
   }
   book.visible = false;
   engine.scene.add(book);
-  const NB_FWD = 0.5;
-  const yawQ = new THREE.Quaternion(), V = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
-  engine.onFrame(() => {
-    if (!book.visible) return;
-    const rig = engine.rig, yaw = rig.rotation.y;
-    rig.getWorldPosition(V);
-    const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-    book.position.copy(V).addScaledVector(fwd, NB_FWD).addScaledVector(right, -0.36);
-    book.position.y = BENCH_TOP + 0.011;                  // lying on the desk (floats at desk height where there is none)
-    book.quaternion.copy(yawQ.setFromAxisAngle(UP, yaw + 0.35));
-    if (book.position.distanceToSquared(lastAt) > 0.01) { lastAt.copy(book.position); fitStand(); }
-  });
+  // fixed homes. Bench: front-left of the desk, in front of the trough and right of the timer (measured clear of every
+  // prop: the desk spans z -1.04…-1.61, the trough starts at z -1.31, the stand foot at x -0.5, the timer at x -0.77).
+  const HOMES = { bench: { x: -0.5, z: -1.17, yaw: 0.15 } };
+  function homeFor(id) {
+    if (HOMES[id]) return HOMES[id];
+    const st = ctx.loco?.stations[id];
+    if (!st) return null;
+    const yaw = st.yaw, fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+    const p = st.pos.clone().addScaledVector(fwd, 0.42).addScaledVector(right, -0.36);   // beside the seat, on the left
+    return { x: p.x, z: p.z, yaw: yaw + 0.35 };
+  }
+  let homeOf = null;
+  function place() {
+    const id = ctx.loco?.current, h = homeFor(id);
+    homeOf = id;
+    if (!h) return;
+    book.position.set(h.x, BENCH_TOP + 0.011, h.z); book.rotation.set(0, h.yaw, 0);
+    book.updateMatrixWorld(true);
+    fitStand();
+  }
+  engine.onFrame(() => { if (book.visible && ctx.loco?.current !== homeOf) place(); });
   input.register(book, { noHighlight: true, onSelect: () => nb.toggle(),
     onHover: on => { cover.emissive.setRGB(on ? 0.12 : 0, on ? 0.3 : 0, on ? 0.3 : 0); } });
 
@@ -171,19 +181,7 @@ export function createNotebook(ctx) {
       openG.userData.parts = [pagePanel, prevB, nextB, closeB];
       // always drawn over the lab: on desktop the bench props would otherwise cut through the page
       openG.userData.parts.forEach((p, i) => { p.mesh.material.depthTest = false; p.mesh.renderOrder = 30 + i; });
-      let yaw = placeInFront(openG);
-      // follows gently if the student turns far away (like the chapter boards)
-      openG.userData.off = engine.onFrame(dt => {
-        const d = engine.camera.getWorldDirection(new THREE.Vector3());
-        const want = Math.atan2(-d.x, -d.z);
-        let dd = want - yaw; while (dd > Math.PI) dd -= 2 * Math.PI; while (dd < -Math.PI) dd += 2 * Math.PI;
-        if (Math.abs(dd) > 0.9 || openG.userData.following) {
-          openG.userData.following = Math.abs(dd) > 0.05;
-          yaw += dd * Math.min(1, dt * 2.5);
-          const head = engine.headPosition(new THREE.Vector3());
-          openG.position.set(head.x - Math.sin(yaw) * VD, head.y - 0.14, head.z - Math.cos(yaw) * VD); openG.rotation.y = yaw;
-        }
-      });
+      placeInFront(openG);                         // opens where the student looks and stays there
       engine.scene.add(openG);
       audio.sfx('click');
       redraw();
@@ -192,7 +190,7 @@ export function createNotebook(ctx) {
     },
     close() {
       if (!openG) return;
-      openG.userData.off(); openG.userData.parts.forEach(p => p.dispose());
+      openG.userData.parts.forEach(p => p.dispose());
       engine.scene.remove(openG); openG = null;
       audio.sfx('click');
       waiters.close.splice(0).forEach(f => f());

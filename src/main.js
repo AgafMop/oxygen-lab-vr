@@ -28,6 +28,7 @@ import { SAVE_KEY } from './game/config.js';
 import { createIntroVideo, primeIntroVideo } from './fx/introCinema.js';
 import { isClear } from './lab/clearance.js';
 import { createNotebook } from './ui/notebook.js';
+import { DEFAULT_SENTENCE } from './game/hypothesis.js';
 
 const CH = { intro: ch0, hypothesis: ch1, bench: ch2, robot: ch3, graph: ch4, rescue: ch5, life: ch6, end: chEnd };
 const CH_NAMES = { intro: 'פתיחה', rescue: 'הצלת הבסיס', life: 'מסדרון החיים', hypothesis: 'תדריך והשערה', bench: 'הניסוי בידיים', robot: 'רובי מריץ ניסויים', graph: 'הגרף והאנזים', end: 'סיכום' };
@@ -210,7 +211,7 @@ function seedFor(id) {
   if (order > CHAPTERS.indexOf('intro')) { game.s.flags.introDone = true; ctx.mood.set({ light: 0.85, gen: 0.15 }); }
   if (order > CHAPTERS.indexOf('bench')) {
     game.s.hypothesis ??= 'peak'; game.s.flags.goggles = true; game.s.flags.notebook = true;
-    game.s.hypSentence ??= { iv: 'הטמפרטורה', ivDir: 'תעלה', dv: 'כמות החמצן', dvDir: 'תעלה', text: 'כאשר הטמפרטורה תעלה, כמות החמצן תעלה.' };
+    game.s.hypSentence ??= { ...DEFAULT_SENTENCE };
     // two hand temperatures × three repeats; ?handUnmixed=T / ?handLeak=T make the 2nd repeat there a kept deviating reading
     const unmixedAt = Number(params.get('handUnmixed')) || null, leakAt = Number(params.get('handLeak')) || null;
     for (const [T, vs] of [[20, [11, 11.5, 10.5]], [40, [40.5, 41.5, 39.5]]]) vs.forEach((v, i) => {

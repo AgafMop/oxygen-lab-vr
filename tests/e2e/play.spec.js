@@ -66,6 +66,34 @@ test('notebook: hypothesis, protocol, results with a struck reading, log and con
   await expectTextFits(page);
   await page.click('#notebookBtn');                       // desktop HUD button toggles it
   expect(await page.evaluate(() => window.__ctx.notebook.isOpen)).toBe(false);
+  // the closed book has a fixed home at every station: nothing pokes into it, and turning doesn't move it
+  const homes = await page.evaluate(async () => {
+    const THREE = await import('three');
+    const { loco, lab, engine } = window.__ctx;
+    const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const book = engine.scene.getObjectByName('notebook'), rc = new THREE.Raycaster(), out = {};
+    const solids = [lab.root, ...Object.values(lab.props).filter(o => !o.parent?.name?.startsWith('P_'))];
+    for (const id of ['bench', 'robot', 'generator', 'entry']) {
+      await loco.goTo(id, { fade: false }); await frame();
+      const at = book.position.clone(), q = book.quaternion.clone();
+      let worst = -1;
+      for (let i = 0; i <= 6; i++) for (let k = 0; k <= 6; k++) {
+        const p = new THREE.Vector3(-0.09 + 0.18 * i / 6, 0, -0.12 + 0.24 * k / 6).applyQuaternion(q).add(at); p.y = 2.5;
+        rc.set(p, new THREE.Vector3(0, -1, 0));
+        const hit = rc.intersectObjects(solids, true)[0];
+        if (hit) worst = Math.max(worst, hit.point.y);
+      }
+      engine.rig.rotation.y += 1.2; await frame();
+      const moved = book.position.distanceTo(at) + book.quaternion.angleTo(q);
+      engine.rig.rotation.y -= 1.2; await frame();
+      out[id] = { poke: +(worst - (at.y - 0.011)).toFixed(3), moved: +moved.toFixed(4) };
+    }
+    return out;
+  });
+  for (const [id, h] of Object.entries(homes)) {
+    expect(h.poke, `something pokes into the notebook at ${id}`).toBeLessThan(0.005);
+    expect(h.moved, `the notebook moved when turning at ${id}`).toBe(0);
+  }
   expect(errors).toEqual([]);
 });
 
@@ -126,7 +154,7 @@ test('chapter 1 auto', async ({ page }) => {
   await page.waitForFunction(() => window.__chapterDone === 'hypothesis', null, { timeout: 150_000 });
   const s = await page.evaluate(() => window.__ctx.game.s);
   expect(s.hypothesis).toBe('peak');
-  expect(s.hypSentence.text).toBe('כאשר הטמפרטורה תעלה, כמות החמצן תעלה.');   // the research hypothesis, written before the graph
+  expect(s.hypSentence.text).toBe('כאשר הטמפרטורה תעלה, כמות החמצן תעלה ואז תרד.');   // the research hypothesis, written before the graph
   expect(s.flags.varsFirstTry).toBe(true);
   await expectTextFits(page);
   expect(errors).toEqual([]);
