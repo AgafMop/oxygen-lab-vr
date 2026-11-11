@@ -75,12 +75,7 @@ export function createNotebook(ctx) {
   input.register(book, { noHighlight: true, onSelect: () => nb.toggle(),
     onHover: on => { cover.emissive.setRGB(on ? 0.12 : 0, on ? 0.3 : 0, on ? 0.3 : 0); } });
 
-  // desktop: a HUD button and the B key
-  const btn = document.createElement('button');
-  btn.className = 'btn alt'; btn.type = 'button'; btn.id = 'notebookBtn'; btn.hidden = true; btn.textContent = '📓 מחברת (B)';
-  btn.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:7;font-size:15px;padding:8px 16px';
-  btn.addEventListener('click', e => { e.stopPropagation(); nb.toggle(); });
-  document.body.append(btn);
+  // desktop: the B key (no HUD button: the book itself is the way in)
   addEventListener('keydown', e => { if (e.code === 'KeyB' && available) nb.toggle(); });
 
   // ---- the open notebook ----
@@ -162,7 +157,7 @@ export function createNotebook(ctx) {
     /** Shown from the moment Robi introduces it (flag survives saves). */
     sync() {
       available = !!game.s.flags.notebook && game.s.chapter !== 'intro';
-      book.visible = available; btn.hidden = !available || engine.isXR();
+      book.visible = available;
       if (!available && openG) nb.close();
     },
     open(at = null) {

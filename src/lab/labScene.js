@@ -1,6 +1,7 @@
 // Loads the Blender-built lab, props and Robi; lightmap, environment, Mars view, dust.
 import * as THREE from 'three';
 import { glassify } from './looks.js';
+import { roundDot } from '../fx/dot.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -117,7 +118,7 @@ export async function loadLab(engine, base = 'assets/') {
   const N = 260, pos = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) pos.set([(Math.random() - 0.5) * 7.4, Math.random() * 2.8 + 0.1, (Math.random() - 0.5) * 5.6], i * 3);
   const dustGeo = new THREE.BufferGeometry(); dustGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xffd8b0, size: 0.012, transparent: true, opacity: 0.45, depthWrite: false }));
+  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xffd8b0, size: 0.01, map: roundDot(), transparent: true, opacity: 0.4, depthWrite: false }));
   scene.add(dust);
   engine.onFrame(dt => {
     const a = dustGeo.attributes.position.array;

@@ -1,5 +1,6 @@
 // Dust storm: a towering curved wall of billowing dust (noise shader) that rolls in, plus streaming dust and a brown-out overlay.
 import * as THREE from 'three';
+import { roundDot } from './dot.js';
 
 const VERT = `varying vec2 vUv; varying vec3 vPos; void main(){ vUv = uv; vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`;
 const FRAG = `
@@ -33,7 +34,7 @@ export function createStorm(ctx, { center, azimuth = Math.PI * 0.6, arc = Math.P
   const N = 700, pos = new Float32Array(N * 3), seed = new Float32Array(N);
   for (let i = 0; i < N; i++) { seed[i] = Math.random(); pos.set([(Math.random() - 0.5) * 40, Math.random() * 8, (Math.random() - 0.5) * 40], i * 3); }
   const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const pm = new THREE.PointsMaterial({ color: 0xc98a5a, size: 0.06, transparent: true, opacity: 0, depthWrite: false });
+  const pm = new THREE.PointsMaterial({ color: 0xc98a5a, size: 0.06, map: roundDot(), transparent: true, opacity: 0, depthWrite: false });
   const pts = new THREE.Points(pg, pm); pts.position.copy(center); pts.frustumCulled = false; pts.visible = particles; engine.scene.add(pts);
 
   // brown-out overlay on the camera

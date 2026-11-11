@@ -64,7 +64,8 @@ test('notebook: hypothesis, protocol, results with a struck reading, log and con
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${SHOTS}/notebook.png` });
   await expectTextFits(page);
-  await page.click('#notebookBtn');                       // desktop HUD button toggles it
+  await page.keyboard.press('KeyB');                      // desktop: the B key toggles it
+  expect(await page.locator('#notebookBtn').count()).toBe(0);   // no HUD button: the book on the desk is enough
   expect(await page.evaluate(() => window.__ctx.notebook.isOpen)).toBe(false);
   // the closed book has a fixed home at every station: nothing pokes into it, and turning doesn't move it
   const homes = await page.evaluate(async () => {
