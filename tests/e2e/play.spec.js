@@ -409,12 +409,30 @@ test('full auto run: boot to the end screen', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('resume: a saved checkpoint continues from that chapter', async ({ page }) => {
-  test.setTimeout(480_000);
+const ROBOT_SAVE = { seed: 3, chapter: 'robot', o2: 315, score: 0, hypothesis: 'peak', plan: [], trials: { 20: [11, 11.5, 10.5].map(volume => ({ volume, by: 'student', valid: true })), 40: [40, 41, 39.5].map(volume => ({ volume, by: 'student', valid: true })) }, badges: [], mistakes: [], flags: { goggles: true }, over: false };
+
+test('resume: a saved checkpoint is only offered — the plain entry starts from the opening', async ({ page }) => {
   await page.goto('/?test');
-  await page.evaluate(() => localStorage.setItem('oxylab.v1', JSON.stringify({ seed: 3, chapter: 'robot', o2: 315, score: 0, hypothesis: 'peak', plan: [], trials: { 20: [11, 11.5, 10.5].map(volume => ({ volume, by: 'student', valid: true })), 40: [40, 41, 39.5].map(volume => ({ volume, by: 'student', valid: true })) }, badges: [], mistakes: [], flags: { goggles: true }, over: false })));
+  await page.evaluate(s => localStorage.setItem('oxylab.v1', JSON.stringify(s)), ROBOT_SAVE);
   const errors = await boot(page, '&auto');
-  await expect(page.locator('#resumeNote')).toBeHidden();
+  await page.waitForFunction(() => window.__ctx.game.s.chapter === 'intro', null, { timeout: 30_000 });
+  await expect(page.locator('#resume')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('resume: the resume button continues from the saved chapter', async ({ page }) => {
+  test.setTimeout(480_000);
+  const errors = [];
+  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('pageerror', e => errors.push(String(e)));
+  await page.goto('/?test');
+  await page.evaluate(s => localStorage.setItem('oxylab.v1', JSON.stringify(s)), ROBOT_SAVE);
+  await page.goto('/?test&auto');
+  await expect(page.locator('#resumeBtn')).toBeVisible({ timeout: 120_000 });
+  await expect(page.locator('#resumeBtn')).toContainText('רובי מריץ ניסויים');
+  await page.click('#resumeBtn');
+  await page.waitForFunction(() => window.__ctx?.ready === true);
+  await expect(page.locator('#resume')).toBeHidden();
   await page.waitForFunction(() => window.__ctx.game.s.chapter === 'robot', null, { timeout: 60_000 });
   await page.waitForFunction(() => window.__ctx.lockedTemps, null, { timeout: 60_000 });
   expect(await page.evaluate(() => window.__ctx.lockedTemps)).toEqual([20, 40]);

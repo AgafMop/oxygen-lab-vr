@@ -37,6 +37,9 @@
   .row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
   .btn { font:700 18px Heebo, sans-serif; border:0; border-radius:12px; padding:14px 28px; cursor:pointer; background:var(--mars); color:#fff; }
   .btn.alt { background:#16233a; border:1px solid #3a4c6a; }
+  .btn.ghost { background:transparent; border:2px solid var(--oxy); color:var(--oxy); font-size:16px; padding:10px 22px; }
+  #resume { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  #resume p { font-size:13px; }
   .btn:disabled { opacity:.5; cursor:wait; }
   .btn:focus-visible { outline:3px solid var(--oxy); outline-offset:3px; }
   #hint { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:5; background:rgba(11,15,24,.75); color:var(--muted); font-size:13px; padding:6px 14px; border-radius:999px; white-space:nowrap; pointer-events:none; }
@@ -66,7 +69,10 @@
     <button class="btn" id="enterVR" type="button" hidden>כניסה במשקפי VR</button>
     <button class="btn alt" id="enter" type="button" disabled>טוען…</button>
   </div>
-  <p id="resumeNote" hidden style="color:var(--oxy)">נמצאה שמירה. <a href="?fresh" style="color:var(--muted)">להתחיל מחדש</a></p>
+  <div id="resume" hidden>
+    <button class="btn ghost" id="resumeBtn" type="button">להמשיך מהמקום שהפסקתי</button>
+    <p id="resumeNote">הכפתורים למעלה מתחילים את הניסוי מההתחלה, עם סרט הפתיחה.</p>
+  </div>
   <p style="font-size:13px">במחשב: גוררים כדי להסתכל, W A S D לתזוזה, לחיצה לבחירה, 1–4 קפיצה בין תחנות.</p>
 </div>
 <div id="hint" hidden></div>

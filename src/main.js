@@ -135,7 +135,7 @@ function resetAmbience() {
 }
 
 async function boot() {
-  const needIntro = (!saved?.chapter || saved.chapter === 'intro') && (!params.get('only') || params.get('only') === 'intro');
+  const needIntro = !params.get('only') || params.get('only') === 'intro';    // every visit starts with the film unless the student resumes
   if (needIntro && !params.has('novideo') && (!AUTO || params.has('video'))) ctx.introVideoSrc = createIntroVideo();   // preload while the lab loads
   ctx.lab = await loadLab(engine);
   for (const [n, o] of Object.entries(ctx.lab.props)) if (!/_\d+$/.test(n)) ctx.track?.(o, n);   // whole props, not their sub-meshes
@@ -154,11 +154,14 @@ async function boot() {
   ctx.robi.placeNear(new THREE.Vector3(0, 0, -1.42), new THREE.Vector3(1.0, 0, 0.45), { instant: true });
   await ui.fontsReady;
   $('enter').disabled = false; $('enter').textContent = 'כניסה במחשב';
-  if (saved?.chapter && CH[saved.chapter] && saved.chapter !== 'hypothesis') {
-    $('resumeNote').hidden = false;
-    $('resumeNote').firstChild.textContent = `נמצאה שמירה: ממשיכים מהפרק „${CH_NAMES[saved.chapter]}”. `;
+  const vr = !!navigator.xr && await navigator.xr.isSessionSupported('immersive-vr').catch(() => false);
+  if (vr) $('enterVR').hidden = false;
+  // a saved checkpoint past the opening is only offered: the default is always a fresh start
+  if (saved?.chapter && CH[saved.chapter] && saved.chapter !== 'intro') {
+    $('resume').hidden = false;
+    $('resumeBtn').textContent = `להמשיך מהפרק „${CH_NAMES[saved.chapter]}”${vr ? ' (במשקפי VR)' : ''}`;
+    $('resumeBtn').onclick = () => { ctx.resume = true; start(vr); };
   }
-  if (navigator.xr && await navigator.xr.isSessionSupported('immersive-vr').catch(() => false)) $('enterVR').hidden = false;
 }
 
 async function start(vr) {
@@ -180,6 +183,7 @@ async function start(vr) {
   }
   if (ctx.started) return;        // re-entering VR after the headset slept: never start a second game
   ctx.started = true;
+  $('resume').hidden = true;      // the choice is made: back on this screen (VR ended) only re-entry is offered
   window.__runs = (window.__runs || 0) + 1;
   ui.wristMeter(game);
   ctx.ready = true;
@@ -194,7 +198,7 @@ async function start(vr) {
 async function runGame() {
   const only = params.get('only');
   let list = only ? [only] : CHAPTERS.filter(id => CH[id]);
-  if (!only && saved?.chapter && CH[saved.chapter] && game.loadSave()) {
+  if (!only && ctx.resume && saved?.chapter && CH[saved.chapter] && game.loadSave()) {
     list = list.slice(list.indexOf(saved.chapter));
     game.spend(0);                 // refresh the O2 meter with the saved value
     resetAmbience();
@@ -327,6 +331,6 @@ async function handDemo() {
   window.__handReady = true;
 }
 
-$('enter').addEventListener('click', () => start(false));
-$('enterVR').addEventListener('click', () => start(true));
+$('enter').addEventListener('click', () => { if (!ctx.started) ctx.resume = false; start(false); });
+$('enterVR').addEventListener('click', () => { if (!ctx.started) ctx.resume = false; start(true); });
 boot().catch(err => { console.error(err); $('enter').textContent = 'שגיאה בטעינה'; });
